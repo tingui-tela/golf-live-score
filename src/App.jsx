@@ -322,6 +322,25 @@ export default function GolfScorecard() {
 
   const addNewPlayer=()=>{const name=newPlayerName.trim();if(!name||playerList.includes(name))return;const nl=[...playerList,name],ns=[...selectedPlayers,name];s_plist(nl);s_sel(ns);s_npn("");s_showAdd(false);saveSetup(ns,handicaps,nl,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
 
+  const [showResetConfirm, s_showResetConfirm] = useState(false);
+
+  const nuevaRonda = async () => {
+    // Clear all scores locally
+    s_scores({});
+    // Clear scores in Google Sheets
+    s_syncing(true);
+    await gasWrite(SCORES_KEY, JSON.stringify({}));
+    s_syncing(false);
+    // Reset selections but keep player list, handicaps, course and teams config
+    s_sel([]);
+    s_teams(makeEmptyTeams(numTeams));
+    try { localStorage.setItem(SETUP_KEY, JSON.stringify({selectedPlayers:[],handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams:makeEmptyTeams(numTeams),activeCourseId})); } catch(e) {}
+    s_view("setup");
+    s_setupTab("players");
+    s_showResetConfirm(false);
+    s_lu(null);
+  };
+
   const handleCell=(player,hole)=>{s_ap(player);s_ah(hole);s_iv(scores[player]?.[hole]||"");};
   const commitScore=async()=>{
     if(!activePlayer||!activeHole)return;
@@ -447,14 +466,35 @@ export default function GolfScorecard() {
   if (view==="setup") return (
     <div style={{background:"#0a0f0a",minHeight:"100vh",fontFamily:"Georgia,serif",color:"#e2e8f0"}}>
       <div style={{background:"linear-gradient(135deg,#052e16,#0a2010)",borderBottom:"1px solid #166534",padding:"16px 20px"}}>
-        <div style={{fontSize:22,fontWeight:"bold",color:"#4ade80"}}>⛳ Golf Live Score</div>
-        <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Configuración · Par {TOTAL_PAR}</div>
-        {/* Sync status */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontSize:22,fontWeight:"bold",color:"#4ade80"}}>⛳ Golf Live Score</div>
+            <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Configuración · Par {TOTAL_PAR}</div>
+          </div>
+          {Object.keys(scores).length>0&&(
+            <button onClick={()=>s_showResetConfirm(true)} style={{padding:"8px 14px",borderRadius:8,border:"2px solid #dc2626",background:"transparent",color:"#f87171",cursor:"pointer",fontSize:12,fontWeight:"bold"}}>🔄 Nueva ronda</button>
+          )}
+        </div>
         <div style={{marginTop:6,display:"flex",alignItems:"center",gap:6}}>
           <div style={{width:7,height:7,borderRadius:"50%",background:syncing?"#fbbf24":"#4ade80"}}/>
           <span style={{fontSize:10,color:syncing?"#fbbf24":"#4ade80"}}>{syncing?"Sincronizando...":"Conectado · Google Sheets"}</span>
         </div>
       </div>
+
+      {/* ── Confirm reset modal ── */}
+      {showResetConfirm&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:"#0f1a0f",border:"2px solid #dc2626",borderRadius:16,padding:24,maxWidth:320,width:"100%",textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
+            <div style={{fontSize:18,fontWeight:"bold",color:"#f87171",marginBottom:8}}>¿Nueva ronda?</div>
+            <div style={{fontSize:14,color:"#6b7280",marginBottom:20}}>Se van a borrar todos los scores actuales de todos los jugadores. Esta acción no se puede deshacer.</div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>s_showResetConfirm(false)} style={{flex:1,padding:"12px",borderRadius:10,border:"1px solid #374151",background:"transparent",color:"#9ca3af",cursor:"pointer",fontSize:14,fontWeight:"bold"}}>Cancelar</button>
+              <button onClick={nuevaRonda} style={{flex:1,padding:"12px",borderRadius:10,border:"none",background:"#dc2626",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:"bold"}}>{syncing?"Borrando...":"Sí, borrar todo"}</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{padding:16}}>
         <div style={{display:"flex",gap:3,marginBottom:14,background:"#0f1a0f",borderRadius:10,padding:4}}>
           {[["course","🏌️ Cancha"],["players","👤 Jugadores"],["teams","🤝 Laguñada"]].map(([tab,label])=>(
@@ -574,6 +614,7 @@ export default function GolfScorecard() {
               <button key={v} onClick={()=>s_view(v)} style={{padding:"6px 10px",borderRadius:6,border:"none",cursor:"pointer",fontSize:13,fontWeight:"bold",background:view===v?"#16a34a":"#1a2e1a",color:view===v?"#fff":"#6b7280"}}>{label}</button>
             ))}
             <button onClick={()=>s_view("setup")} style={{padding:"6px 10px",borderRadius:6,border:"1px solid #374151",background:"transparent",color:"#6b7280",cursor:"pointer",fontSize:11}}>⚙️</button>
+            <button onClick={()=>s_showResetConfirm(true)} style={{padding:"6px 10px",borderRadius:6,border:"1px solid #dc2626",background:"transparent",color:"#f87171",cursor:"pointer",fontSize:11,fontWeight:"bold"}}>🔄</button>
           </div>
         </div>
         {allDone&&<button onClick={()=>s_showResult(true)} style={{marginTop:10,width:"100%",padding:"10px",borderRadius:8,border:"none",background:"linear-gradient(90deg,#ca8a04,#eab308)",color:"#000",cursor:"pointer",fontSize:14,fontWeight:"bold"}}>🏆 Ronda completa! Ver resultado y PDF</button>}
@@ -768,6 +809,21 @@ export default function GolfScorecard() {
         </div>
       )}
       {showRotation&&<RotationModal/>}
+
+      {/* ── Reset confirm modal ── */}
+      {showResetConfirm&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:"#0f1a0f",border:"2px solid #dc2626",borderRadius:16,padding:24,maxWidth:320,width:"100%",textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
+            <div style={{fontSize:18,fontWeight:"bold",color:"#f87171",marginBottom:8}}>¿Nueva ronda?</div>
+            <div style={{fontSize:14,color:"#6b7280",marginBottom:20}}>Se van a borrar todos los scores actuales de todos los jugadores. Esta acción no se puede deshacer.</div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>s_showResetConfirm(false)} style={{flex:1,padding:"12px",borderRadius:10,border:"1px solid #374151",background:"transparent",color:"#9ca3af",cursor:"pointer",fontSize:14,fontWeight:"bold"}}>Cancelar</button>
+              <button onClick={nuevaRonda} style={{flex:1,padding:"12px",borderRadius:10,border:"none",background:"#dc2626",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:"bold"}}>{syncing?"Borrando...":"Sí, borrar todo"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
