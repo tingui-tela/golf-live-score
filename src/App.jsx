@@ -140,11 +140,32 @@ function CourseEditor({course, onSave, onCancel}) {
   const [name,setName]=useState(course?.name||"");
   const [par,setPar]=useState(course?.par||Array(18).fill(4));
   const [hcp,setHcp]=useState(course?.hcpHole||Array.from({length:18},(_,i)=>i+1));
+  // hcpRaw stores string values while editing so fields can be cleared
+  const [hcpRaw,setHcpRaw]=useState((course?.hcpHole||Array.from({length:18},(_,i)=>i+1)).map(String));
   const [scanning,setScanning]=useState(false);
   const [scanMsg,setScanMsg]=useState("");
   const fileRef=useRef();
   const totalPar=par.reduce((a,b)=>a+b,0);
   const valid=name.trim().length>0&&par.every(p=>p>=3&&p<=6)&&hcp.every(h=>h>=1&&h<=18)&&new Set(hcp).size===18;
+
+  const handleHcpChange=(i,val)=>{
+    const newRaw=[...hcpRaw]; newRaw[i]=val; setHcpRaw(newRaw);
+    const newHcp=[...hcp];
+    const parsed=parseInt(val);
+    newHcp[i]=isNaN(parsed)?hcp[i]:parsed;
+    setHcp(newHcp);
+  };
+
+  const handleHcpBlur=(i)=>{
+    const newRaw=[...hcpRaw];
+    const parsed=parseInt(hcpRaw[i]);
+    if(isNaN(parsed)||parsed<1||parsed>18){
+      newRaw[i]=String(hcp[i]);
+    } else {
+      newRaw[i]=String(parsed);
+    }
+    setHcpRaw(newRaw);
+  };
 
   const handlePhoto=async(e)=>{
     const file=e.target.files[0]; if(!file) return;
@@ -155,8 +176,13 @@ function CourseEditor({course, onSave, onCancel}) {
       const data=await resp.json();
       const text="{"+data.content?.map(c=>c.text||"").join("").replace(/```json|```/g,"").trim();
       const parsed=JSON.parse(text);
-      if (parsed.par?.length===18&&parsed.hcpHole?.length===18){setPar(parsed.par.map(Number));setHcp(parsed.hcpHole.map(Number));if(parsed.name)setName(parsed.name);setScanMsg("✅ Tarjeta leída correctamente");}
-      else setScanMsg("No pude leer todos los datos. Completá manualmente.");
+      if (parsed.par?.length===18&&parsed.hcpHole?.length===18){
+        setPar(parsed.par.map(Number));
+        setHcp(parsed.hcpHole.map(Number));
+        setHcpRaw(parsed.hcpHole.map(String));
+        if(parsed.name)setName(parsed.name);
+        setScanMsg("✅ Tarjeta leída correctamente");
+      } else setScanMsg("No pude leer todos los datos. Completá manualmente.");
     } catch {setScanMsg("Error al leer la imagen. Completá manualmente.");}
     setScanning(false);
   };
@@ -197,7 +223,15 @@ function CourseEditor({course, onSave, onCancel}) {
                 </div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:9,color:"#6b7280",textAlign:"center",marginBottom:3}}>HCP</div>
-                  <input type="number" min="1" max="18" value={hcp[i]} onChange={e=>{const n=[...hcp];n[i]=parseInt(e.target.value)||1;setHcp(n);}} style={{width:"100%",boxSizing:"border-box",background:"#0a1a3a",border:`1px solid ${hcp.filter((v,j)=>v===hcp[i]&&j!==i).length>0?"#dc2626":"#1e3a5f"}`,borderRadius:6,color:"#93c5fd",fontSize:15,fontWeight:"bold",padding:"5px 4px",textAlign:"center",outline:"none"}}/>
+                  <input
+                    type="number"
+                    min="1"
+                    max="18"
+                    value={hcpRaw[i]}
+                    onChange={e=>handleHcpChange(i,e.target.value)}
+                    onBlur={()=>handleHcpBlur(i)}
+                    style={{width:"100%",boxSizing:"border-box",background:"#0a1a3a",border:`1px solid ${hcp.filter((v,j)=>v===hcp[i]&&j!==i).length>0?"#dc2626":"#1e3a5f"}`,borderRadius:6,color:"#93c5fd",fontSize:15,fontWeight:"bold",padding:"5px 4px",textAlign:"center",outline:"none"}}
+                  />
                 </div>
               </div>
             </div>
@@ -331,13 +365,10 @@ export default function GolfScorecard() {
   const [showResetConfirm, s_showResetConfirm] = useState(false);
 
   const nuevaRonda = async () => {
-    // Clear all scores locally
     s_scores({});
-    // Clear scores in Google Sheets
     s_syncing(true);
     await gasWrite(SCORES_KEY, JSON.stringify({}));
     s_syncing(false);
-    // Reset selections but keep player list, handicaps, course and teams config
     s_sel([]);
     s_teams(makeEmptyTeams(numTeams));
     try { localStorage.setItem(SETUP_KEY, JSON.stringify({selectedPlayers:[],handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams:makeEmptyTeams(numTeams),activeCourseId})); } catch(e) {}
@@ -397,7 +428,7 @@ export default function GolfScorecard() {
     const holeRows=finalBoard.map(p=>{const hcp=parseInt(handicaps[p])||0;const cells=Array.from({length:HOLES},(_,i)=>i+1).map(h=>{const s=scores[p]?.[h];const pts=s?sfPoints(s,PAR[h-1],hcp,HCP_HOLE[h-1]):null;const bg=!s?"":s-PAR[h-1]<=-2?"#fef9c3":s-PAR[h-1]===-1?"#ffedd5":s-PAR[h-1]===0?"#dcfce7":s-PAR[h-1]===1?"#f1f5f9":"#fee2e2";return`<td style="padding:3px;text-align:center;background:${bg};font-size:10px"><div style="font-weight:bold">${s||"-"}</div>${gameMode!=="medal"?`<div style="font-size:8px;color:#15803d">${pts!==null?pts+"p":""}</div>`:""}</td>`;}).join("");return`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:3px 7px;font-weight:bold;font-size:11px;white-space:nowrap">${p}<br><span style="font-size:9px;color:#6b7280;font-weight:normal">HCP ${handicaps[p]||0}</span></td>${cells}<td style="padding:3px 5px;text-align:center;font-weight:bold;font-size:11px">${gameMode==="medal"?playerTotal(p):playerSF(p)+" pts"}</td>${gameMode==="medal"?`<td style="padding:3px 5px;text-align:center;font-weight:bold;font-size:11px;color:#15803d">${fvp(playerNet(p))}</td>`:""}</tr>`;}).join("");
     const parRow=Array.from({length:HOLES},(_,i)=>`<td style="padding:2px 3px;text-align:center;font-size:9px;color:#6b7280">${PAR[i]}</td>`).join("");
     const hcpRow=Array.from({length:HOLES},(_,i)=>`<td style="padding:2px 3px;text-align:center;font-size:8px;color:#9ca3af">${HCP_HOLE[i]}</td>`).join("");
-    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${activeCourse.name} ${today}</title><style>body{font-family:Georgia,serif;margin:0;padding:14px;color:#111;background:#fff}h1{margin:0;font-size:20px;color:#166534}.sub{color:#6b7280;font-size:12px;margin:3px 0 14px}table{border-collapse:collapse;width:100%}th{background:#f0fdf4;padding:7px;font-size:11px;color:#166534;border-bottom:2px solid #bbf7d0}@media print{body{padding:8px}}</style></head><body><h1>⛳ ${activeCourse.name}</h1><div class="sub">${modeLabel} · ${today} · Par ${TOTAL_PAR}</div><h2 style="font-size:13px;color:#166534;margin-bottom:6px">Resultado Final</h2><table style="margin-bottom:18px"><thead><tr><th style="width:34px">Pos.</th><th style="text-align:left">Jugador</th><th>HCP</th><th>${gameMode==="medal"?"Score / Neto":"Puntos"}</th></tr></thead><tbody>${indRows}</tbody></table>${lagSection}<h2 style="font-size:13px;color:#166534;margin-bottom:6px">Scorecard</h2><div style="overflow-x:auto"><table style="font-size:10px"><thead><tr style="background:#f0fdf4"><th style="text-align:left;padding:3px 7px">Jugador</th>${Array.from({length:HOLES},(_,i)=>`<th style="padding:2px 3px;text-align:center">H${i+1}</th>`).join("")}<th>${gameMode==="medal"?"TOT":"PTS"}</th>${gameMode==="medal"?"<th>NETO</th>":""}</tr><tr><td style="padding:2px 7px;font-size:9px;color:#6b7280">Par</td>${parRow}<td></td></tr><tr><td style="padding:2px 7px;font-size:8px;color:#9ca3af">HCP</td>${hcpRow}<td></td></tr></thead><tbody>${holeRows}</tbody></table></div><div style="margin-top:14px;font-size:10px;color:#9ca3af;text-align:center">Golf Live Score · ${activeCourse.name}</div></body></html>`;
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${activeCourse.name} ${today}</title><style>body{font-family:Georgia,serif;margin:0;padding:14px;color:#111;background:#fff}h1{margin:0;font-size:20px;color:#166534}.sub{color:#6b7280;font-size:12px;margin:3px 0 14px}table{border-collapse:collapse;width:100%}th{background:#f0fdf4;padding:7px;font-size:11px;color:#166534;border-bottom:2px solid #bbf7d0}@media print{body{padding:8px}}</style></head><body><h1>⛳ ${activeCourse.name}</h1><div class="sub">${modeLabel} · ${today} · Par ${TOTAL_PAR}</div><h2 style="font-size:13px;color:#166534;margin-bottom:6px">Resultado Final</h2><table style="margin-bottom:18px"><thead><tr><th style="width:34px">Pos.</th><th style="text-align:left">Jugador</th><th>HCP</th><th>${gameMode==="medal"?"Score / Neto":"Puntos"}</th></tr></thead><tbody>${indRows}</tbody></table>${lagSection}<h2 style="font-size:13px;color:#166634;margin-bottom:6px">Scorecard</h2><div style="overflow-x:auto"><table style="font-size:10px"><thead><tr style="background:#f0fdf4"><th style="text-align:left;padding:3px 7px">Jugador</th>${Array.from({length:HOLES},(_,i)=>`<th style="padding:2px 3px;text-align:center">H${i+1}</th>`).join("")}<th>${gameMode==="medal"?"TOT":"PTS"}</th>${gameMode==="medal"?"<th>NETO</th>":""}</tr><tr><td style="padding:2px 7px;font-size:9px;color:#6b7280">Par</td>${parRow}<td></td></tr><tr><td style="padding:2px 7px;font-size:8px;color:#9ca3af">HCP</td>${hcpRow}<td></td></tr></thead><tbody>${holeRows}</tbody></table></div><div style="margin-top:14px;font-size:10px;color:#9ca3af;text-align:center">Golf Live Score · ${activeCourse.name}</div></body></html>`;
     const win=window.open("","_blank");win.document.write(html);win.document.close();setTimeout(()=>win.print(),700);
   };
 
@@ -487,7 +518,6 @@ export default function GolfScorecard() {
         </div>
       </div>
 
-      {/* ── Confirm reset modal ── */}
       {showResetConfirm&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div style={{background:"#0f1a0f",border:"2px solid #dc2626",borderRadius:16,padding:24,maxWidth:320,width:"100%",textAlign:"center"}}>
@@ -816,7 +846,6 @@ export default function GolfScorecard() {
       )}
       {showRotation&&<RotationModal/>}
 
-      {/* ── Reset confirm modal ── */}
       {showResetConfirm&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div style={{background:"#0f1a0f",border:"2px solid #dc2626",borderRadius:16,padding:24,maxWidth:320,width:"100%",textAlign:"center"}}>
