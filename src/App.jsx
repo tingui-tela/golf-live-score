@@ -41,6 +41,31 @@ const DEFAULT_COURSES = [
     par:     [4,3,4,4,3,5,4,4,5,4,4,4,3,5,5,4,3,4],
     hcpHole: [11,17,1,9,15,3,7,13,5,14,2,10,16,12,4,8,18,6],
   },
+  {
+    id: "san-eliseo",
+    name: "San Eliseo Golf",
+    par: 72,
+    holes: [
+      { hole: 1,  par: 4, hcp: 7  },
+      { hole: 2,  par: 5, hcp: 5  },
+      { hole: 3,  par: 4, hcp: 1  },
+      { hole: 4,  par: 3, hcp: 15 },
+      { hole: 5,  par: 4, hcp: 9  },
+      { hole: 6,  par: 4, hcp: 3  },
+      { hole: 7,  par: 4, hcp: 11 },
+      { hole: 8,  par: 3, hcp: 17 },
+      { hole: 9,  par: 5, hcp: 13 },
+      { hole: 10, par: 4, hcp: 8  },
+      { hole: 11, par: 4, hcp: 2  },
+      { hole: 12, par: 3, hcp: 16 },
+      { hole: 13, par: 5, hcp: 6  },
+      { hole: 14, par: 4, hcp: 14 },
+      { hole: 15, par: 4, hcp: 10 },
+      { hole: 16, par: 4, hcp: 4  },
+      { hole: 17, par: 3, hcp: 18 },
+      { hole: 18, par: 5, hcp: 12 },
+    ]
+  }
 ];
 
 // ─── Team config ─────────────────────────────────────────────────────
