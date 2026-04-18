@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 const ALL_PLAYERS = ["Metra","Garza","Herny","Tingui","Gouk","Grassu","Nano","Marto"];
 const HOLES = 18;
-const SCORES_KEY = "golf_scores_v3";
-const SETUP_KEY  = "golf_setup_v13";
-const COURSES_KEY= "golf_courses_v2";
+const SCORES_KEY  = "golf_scores_v3";
+const SETUP_KEY   = "golf_setup_v13";
+const COURSES_KEY = "golf_courses_v2";
+const BONUS_KEY   = "golf_bonus_v1";
 
 // ─── Google Sheets sync ──────────────────────────────────────────────
 const GAS_URL = "https://script.google.com/macros/s/AKfycby4b0aSHVbXSs8S5SG_AP6KQd4idqTXUZKrjeMJTuYhdtnA9dlkBeEqY9pFXcNDkxyM/exec";
@@ -140,7 +141,6 @@ function CourseEditor({course, onSave, onCancel}) {
   const [name,setName]=useState(course?.name||"");
   const [par,setPar]=useState(course?.par||Array(18).fill(4));
   const [hcp,setHcp]=useState(course?.hcpHole||Array.from({length:18},(_,i)=>i+1));
-  // hcpRaw stores string values while editing so fields can be cleared
   const [hcpRaw,setHcpRaw]=useState((course?.hcpHole||Array.from({length:18},(_,i)=>i+1)).map(String));
   const [scanning,setScanning]=useState(false);
   const [scanMsg,setScanMsg]=useState("");
@@ -224,9 +224,7 @@ function CourseEditor({course, onSave, onCancel}) {
                 <div style={{flex:1}}>
                   <div style={{fontSize:9,color:"#6b7280",textAlign:"center",marginBottom:3}}>HCP</div>
                   <input
-                    type="number"
-                    min="1"
-                    max="18"
+                    type="number" min="1" max="18"
                     value={hcpRaw[i]}
                     onChange={e=>handleHcpChange(i,e.target.value)}
                     onBlur={()=>handleHcpBlur(i)}
@@ -268,6 +266,8 @@ export default function GolfScorecard() {
   const [courses,s_courses]       = useState(DEFAULT_COURSES);
   const [activeCourseId,s_acid]   = useState("san_andres");
   const [editingCourse,s_editing] = useState(null);
+  // ── NUEVO: bonus por equipo ───────────────────────────────────────
+  const [teamBonus,s_teamBonus]   = useState({});
 
   const activeCourse = courses.find(c=>c.id===activeCourseId)||courses[0];
   const PAR      = activeCourse.par;
@@ -280,12 +280,18 @@ export default function GolfScorecard() {
   const hasUnequalTeams = teamSizes.some(s=>s>0)&&new Set(teamSizes.filter(s=>s>0)).size>1;
   const minTeamSize = teamSizes.filter(s=>s>0).length>0?Math.min(...teamSizes.filter(s=>s>0)):0;
 
-  // ── Persist setup locally ──────────────────────────────────────────
+  // ── Save setup → local + Google Sheets ────────────────────────────
   const saveSetup = async (sel,hcaps,plist,mode,lv,nt,tm,cid) => {
-    try { localStorage.setItem(SETUP_KEY,JSON.stringify({selectedPlayers:sel,handicaps:hcaps,playerList:plist,gameMode:mode,lagunadaVariant:lv,numTeams:nt,teams:tm,activeCourseId:cid})); } catch(e) {}
+    const data = {selectedPlayers:sel,handicaps:hcaps,playerList:plist,gameMode:mode,lagunadaVariant:lv,numTeams:nt,teams:tm,activeCourseId:cid};
+    try { localStorage.setItem(SETUP_KEY,JSON.stringify(data)); } catch(e) {}
+    // Sync to GAS (no await para no bloquear UI)
+    gasWrite(SETUP_KEY, JSON.stringify(data));
   };
+
+  // ── Save courses → local + Google Sheets ──────────────────────────
   const saveCourses = async (c) => {
     try { localStorage.setItem(COURSES_KEY,JSON.stringify(c)); } catch(e) {}
+    gasWrite(COURSES_KEY, JSON.stringify(c));
   };
 
   // ── Save scores → Google Sheets ────────────────────────────────────
@@ -298,38 +304,62 @@ export default function GolfScorecard() {
     s_lu(new Date().toLocaleTimeString("es-AR"));
   };
 
-  // ── Load: setup from local, scores from Google Sheets ─────────────
+  // ── Save bonus → Google Sheets ─────────────────────────────────────
+  const saveBonus = async (nb) => {
+    s_teamBonus(nb);
+    gasWrite(BONUS_KEY, JSON.stringify(nb));
+    try { localStorage.setItem(BONUS_KEY, JSON.stringify(nb)); } catch(e) {}
+  };
+
+  // ── Load: todo desde Google Sheets (setup + courses + scores + bonus)
   const loadData = useCallback(async () => {
-    try {
-      const [setr,cr] = await Promise.all([
-        Promise.resolve(localStorage.getItem(SETUP_KEY) ? {value: localStorage.getItem(SETUP_KEY)} : null),
-        Promise.resolve(localStorage.getItem(COURSES_KEY) ? {value: localStorage.getItem(COURSES_KEY)} : null),
-      ]);
-      if (cr) {
-        const loaded=JSON.parse(cr.value);
-        const merged=[...DEFAULT_COURSES];
-        for (const c of loaded){if(!merged.find(x=>x.id===c.id))merged.push(c);else{const idx=merged.findIndex(x=>x.id===c.id);if(idx>=0)merged[idx]=c;}}
-        s_courses(merged);
-      }
-      if (setr) {
-        const d=JSON.parse(setr.value);
-        s_sel(d.selectedPlayers||[]);
-        s_hcaps(d.handicaps||{});
-        s_plist(d.playerList||ALL_PLAYERS);
-        s_mode(d.gameMode||"stableford");
-        s_lv(d.lagunadaVariant||"1ball");
-        const nt=d.numTeams||2;
-        s_numTeams(nt);
-        s_teams(d.teams||makeEmptyTeams(nt));
-        if (d.activeCourseId) s_acid(d.activeCourseId);
-        if (d.selectedPlayers?.length>0) s_view("grid");
-      }
-    } catch {}
-    // Pull scores from Google Sheets
     s_syncing(true);
     try {
       const all = await gasRead();
-      if (all[SCORES_KEY]) s_scores(JSON.parse(all[SCORES_KEY]));
+
+      // Courses
+      const coursesRaw = all[COURSES_KEY] || localStorage.getItem(COURSES_KEY);
+      if (coursesRaw) {
+        try {
+          const loaded = JSON.parse(typeof coursesRaw === "string" ? coursesRaw : coursesRaw);
+          const merged = [...DEFAULT_COURSES];
+          for (const c of loaded) {
+            if (!merged.find(x=>x.id===c.id)) merged.push(c);
+            else { const idx=merged.findIndex(x=>x.id===c.id); if(idx>=0) merged[idx]=c; }
+          }
+          s_courses(merged);
+        } catch {}
+      }
+
+      // Setup — preferir GAS sobre localStorage
+      const setupRaw = all[SETUP_KEY] || localStorage.getItem(SETUP_KEY);
+      if (setupRaw) {
+        try {
+          const d = JSON.parse(typeof setupRaw === "string" ? setupRaw : setupRaw);
+          s_sel(d.selectedPlayers||[]);
+          s_hcaps(d.handicaps||{});
+          s_plist(d.playerList||ALL_PLAYERS);
+          s_mode(d.gameMode||"stableford");
+          s_lv(d.lagunadaVariant||"1ball");
+          const nt=d.numTeams||2;
+          s_numTeams(nt);
+          s_teams(d.teams||makeEmptyTeams(nt));
+          if (d.activeCourseId) s_acid(d.activeCourseId);
+          if (d.selectedPlayers?.length>0) s_view("grid");
+        } catch {}
+      }
+
+      // Scores
+      if (all[SCORES_KEY]) {
+        try { s_scores(JSON.parse(all[SCORES_KEY])); } catch {}
+      }
+
+      // Bonus
+      const bonusRaw = all[BONUS_KEY] || localStorage.getItem(BONUS_KEY);
+      if (bonusRaw) {
+        try { s_teamBonus(JSON.parse(typeof bonusRaw === "string" ? bonusRaw : bonusRaw)); } catch {}
+      }
+
     } catch {}
     s_syncing(false);
     s_loading(false);
@@ -341,7 +371,30 @@ export default function GolfScorecard() {
     const iv = setInterval(async()=>{
       try {
         const all = await gasRead();
-        if (all[SCORES_KEY]) s_scores(JSON.parse(all[SCORES_KEY]));
+        if (all[SCORES_KEY]) { try { s_scores(JSON.parse(all[SCORES_KEY])); } catch {} }
+        // También sync setup y bonus en el poll
+        if (all[SETUP_KEY]) {
+          try {
+            const d=JSON.parse(all[SETUP_KEY]);
+            s_sel(d.selectedPlayers||[]);
+            s_hcaps(d.handicaps||{});
+            s_plist(d.playerList||ALL_PLAYERS);
+            s_mode(d.gameMode||"stableford");
+            s_lv(d.lagunadaVariant||"1ball");
+            const nt=d.numTeams||2; s_numTeams(nt);
+            s_teams(d.teams||makeEmptyTeams(nt));
+            if(d.activeCourseId) s_acid(d.activeCourseId);
+          } catch {}
+        }
+        if (all[COURSES_KEY]) {
+          try {
+            const loaded=JSON.parse(all[COURSES_KEY]);
+            const merged=[...DEFAULT_COURSES];
+            for(const c of loaded){if(!merged.find(x=>x.id===c.id))merged.push(c);else{const idx=merged.findIndex(x=>x.id===c.id);if(idx>=0)merged[idx]=c;}}
+            s_courses(merged);
+          } catch {}
+        }
+        if (all[BONUS_KEY]) { try { s_teamBonus(JSON.parse(all[BONUS_KEY])); } catch {} }
         s_lu(new Date().toLocaleTimeString("es-AR"));
       } catch {}
     }, 8000);
@@ -357,7 +410,14 @@ export default function GolfScorecard() {
   const assignTeam=(player,teamId)=>{const alreadyIn=teams[teamId]?.includes(player);const newTeams=Object.fromEntries(Object.entries(teams).map(([id,pls])=>[id,pls.filter(p=>p!==player)]));if(!alreadyIn)newTeams[teamId]=[...(newTeams[teamId]||[]),player];s_teams(newTeams);saveSetup(selectedPlayers,handicaps,playerList,gameMode,lagunadaVariant,numTeams,newTeams,activeCourseId);};
   const playerTeam=(player)=>activeTeamDefs.find(t=>(teams[t.id]||[]).includes(player));
 
-  const saveCourse=(c)=>{const updated=courses.find(x=>x.id===c.id)?courses.map(x=>x.id===c.id?c:x):[...courses,c];s_courses(updated);s_acid(c.id);saveCourses(updated);saveSetup(selectedPlayers,handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams,c.id);s_editing(null);};
+  // saveCourse ahora sincroniza también a GAS
+  const saveCourse=(c)=>{
+    const updated=courses.find(x=>x.id===c.id)?courses.map(x=>x.id===c.id?c:x):[...courses,c];
+    s_courses(updated);s_acid(c.id);
+    saveCourses(updated);
+    saveSetup(selectedPlayers,handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams,c.id);
+    s_editing(null);
+  };
   const deleteCourse=(id)=>{if(DEFAULT_COURSES.find(c=>c.id===id))return;const updated=courses.filter(c=>c.id!==id);s_courses(updated);if(activeCourseId===id){s_acid("san_andres");saveSetup(selectedPlayers,handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams,"san_andres");}saveCourses(updated);};
 
   const addNewPlayer=()=>{const name=newPlayerName.trim();if(!name||playerList.includes(name))return;const nl=[...playerList,name],ns=[...selectedPlayers,name];s_plist(nl);s_sel(ns);s_npn("");s_showAdd(false);saveSetup(ns,handicaps,nl,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
@@ -371,7 +431,10 @@ export default function GolfScorecard() {
     s_syncing(false);
     s_sel([]);
     s_teams(makeEmptyTeams(numTeams));
+    s_teamBonus({});
+    gasWrite(BONUS_KEY, JSON.stringify({}));
     try { localStorage.setItem(SETUP_KEY, JSON.stringify({selectedPlayers:[],handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams:makeEmptyTeams(numTeams),activeCourseId})); } catch(e) {}
+    gasWrite(SETUP_KEY, JSON.stringify({selectedPlayers:[],handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams:makeEmptyTeams(numTeams),activeCourseId}));
     s_view("setup");
     s_setupTab("players");
     s_showResetConfirm(false);
@@ -401,7 +464,18 @@ export default function GolfScorecard() {
 
   const hasTeams=activeTeamDefs.every(t=>(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p)).length>0);
   const teamScores=Object.fromEntries(activeTeamDefs.map(t=>[t.id,calcTeamScore(rotation,t.id,scores,handicaps,lagunadaVariant,PAR,HCP_HOLE)]));
-  const rankedTeams=[...activeTeamDefs].sort((a,b)=>teamScores[a.id].diff-teamScores[b.id].diff);
+  const rankedTeams=[...activeTeamDefs].sort((a,b)=>{
+    const sa=teamScores[a.id].diff-(parseInt(teamBonus[a.id])||0);
+    const sb=teamScores[b.id].diff-(parseInt(teamBonus[b.id])||0);
+    return sa-sb;
+  });
+
+  // Score final con bonus incluido
+  const teamFinalDiff=(teamId)=>{
+    const st=teamScores[teamId];
+    const bonus=parseInt(teamBonus[teamId])||0;
+    return st.diff-bonus;
+  };
 
   // ── Print helpers ──────────────────────────────────────────────────
   const printRotation=()=>{
@@ -424,7 +498,7 @@ export default function GolfScorecard() {
     const modeLabel=gameMode==="medal"?"Medal":"Stableford";
     const indRows=finalBoard.map((p,i)=>{const hcp=parseInt(handicaps[p])||0,sf=playerSF(p),net=playerNet(p),tm=playerTeam(p);const pos=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;const res=gameMode==="medal"?`<td style="text-align:center;font-weight:bold">${playerTotal(p)} (${fvp(net)} neto)</td>`:`<td style="text-align:center;font-weight:bold;color:#15803d">${sf} pts</td>`;return`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:7px;text-align:center">${pos}</td><td style="padding:7px;font-weight:bold">${p}${tm?` <span style="font-size:10px;padding:1px 5px;background:#dbeafe;border-radius:3px">${tm.label}</span>`:""}</td><td style="padding:7px;text-align:center;color:#6b7280">${hcp||"-"}</td>${res}</tr>`;}).join("");
     let lagSection="";
-    if(hasTeams){const vLabel=lagunadaVariant==="1ball"?"1 Pelota":"2 Pelotas";const tRows=rankedTeams.map((t,i)=>{const st=teamScores[t.id];const players=(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));const pos=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;return`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:7px;text-align:center">${pos}</td><td style="padding:7px;font-weight:bold">${t.label}</td><td style="padding:7px;font-size:12px">${players.join(", ")}</td><td style="padding:7px;text-align:center;font-weight:bold;color:${st.diff<0?"#15803d":st.diff>0?"#dc2626":"#374151"}">${st.played>0?fvp(st.diff):"—"}</td></tr>`;}).join("");lagSection=`<h2 style="font-size:14px;color:#1e40af;margin:18px 0 6px">Lagunada ${vLabel}</h2><table style="margin-bottom:14px"><thead><tr><th>Pos.</th><th style="text-align:left">Equipo</th><th style="text-align:left">Jugadores</th><th>Neto vs Par</th></tr></thead><tbody>${tRows}</tbody></table>`;}
+    if(hasTeams){const vLabel=lagunadaVariant==="1ball"?"1 Pelota":"2 Pelotas";const tRows=rankedTeams.map((t,i)=>{const fd=teamFinalDiff(t.id);const bonus=parseInt(teamBonus[t.id])||0;const players=(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));const pos=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;return`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:7px;text-align:center">${pos}</td><td style="padding:7px;font-weight:bold">${t.label}</td><td style="padding:7px;font-size:12px">${players.join(", ")}</td><td style="padding:7px;text-align:center;font-weight:bold;color:${fd<0?"#15803d":fd>0?"#dc2626":"#374151"}">${teamScores[t.id].played>0?fvp(fd):"—"}${bonus>0?` (+${bonus} bonus)`:""}</td></tr>`;}).join("");lagSection=`<h2 style="font-size:14px;color:#1e40af;margin:18px 0 6px">Lagunada ${vLabel}</h2><table style="margin-bottom:14px"><thead><tr><th>Pos.</th><th style="text-align:left">Equipo</th><th style="text-align:left">Jugadores</th><th>Neto vs Par</th></tr></thead><tbody>${tRows}</tbody></table>`;}
     const holeRows=finalBoard.map(p=>{const hcp=parseInt(handicaps[p])||0;const cells=Array.from({length:HOLES},(_,i)=>i+1).map(h=>{const s=scores[p]?.[h];const pts=s?sfPoints(s,PAR[h-1],hcp,HCP_HOLE[h-1]):null;const bg=!s?"":s-PAR[h-1]<=-2?"#fef9c3":s-PAR[h-1]===-1?"#ffedd5":s-PAR[h-1]===0?"#dcfce7":s-PAR[h-1]===1?"#f1f5f9":"#fee2e2";return`<td style="padding:3px;text-align:center;background:${bg};font-size:10px"><div style="font-weight:bold">${s||"-"}</div>${gameMode!=="medal"?`<div style="font-size:8px;color:#15803d">${pts!==null?pts+"p":""}</div>`:""}</td>`;}).join("");return`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:3px 7px;font-weight:bold;font-size:11px;white-space:nowrap">${p}<br><span style="font-size:9px;color:#6b7280;font-weight:normal">HCP ${handicaps[p]||0}</span></td>${cells}<td style="padding:3px 5px;text-align:center;font-weight:bold;font-size:11px">${gameMode==="medal"?playerTotal(p):playerSF(p)+" pts"}</td>${gameMode==="medal"?`<td style="padding:3px 5px;text-align:center;font-weight:bold;font-size:11px;color:#15803d">${fvp(playerNet(p))}</td>`:""}</tr>`;}).join("");
     const parRow=Array.from({length:HOLES},(_,i)=>`<td style="padding:2px 3px;text-align:center;font-size:9px;color:#6b7280">${PAR[i]}</td>`).join("");
     const hcpRow=Array.from({length:HOLES},(_,i)=>`<td style="padding:2px 3px;text-align:center;font-size:8px;color:#9ca3af">${HCP_HOLE[i]}</td>`).join("");
@@ -493,7 +567,7 @@ export default function GolfScorecard() {
           <div style={{padding:"10px 14px",borderBottom:"1px solid #1a2e1a",fontSize:12,color:"#6b7280",textTransform:"uppercase",letterSpacing:1}}>Ranking individual</div>
           {finalBoard.map((p,i)=>{const hcp=parseInt(handicaps[p])||0,sf=playerSF(p),net=playerNet(p),tm=playerTeam(p);return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:i<finalBoard.length-1?"1px solid #1a2e1a":"none",background:i===0?"#0a2010":"transparent"}}><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{fontSize:18,width:26,textAlign:"center"}}>{i<3?medal[i+1]:<span style={{color:"#4b5563",fontSize:13}}>#{i+1}</span>}</div><div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:"bold",fontSize:14}}>{p}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 5px"}}>{tm.label}</span>}</div><div style={{fontSize:11,color:"#6b7280"}}>HCP {hcp} · Bruto: {playerTotal(p)}</div></div></div><div style={{textAlign:"right"}}>{gameMode==="medal"?<><div style={{fontSize:18,fontWeight:"bold",color:vpc(net)}}>{fvp(net)}</div><div style={{fontSize:10,color:"#6b7280"}}>neto</div></>:<div style={{fontSize:20,fontWeight:"bold",color:sfc(sf)}}>{sf} pts</div>}</div></div>);})}
         </div>
-        {hasTeams&&(<div style={{background:"#0a0f1a",borderRadius:10,border:"1px solid #1e3a5f",overflow:"hidden",marginBottom:14}}><div style={{padding:"10px 14px",borderBottom:"1px solid #1e3a5f",fontSize:12,color:"#60a5fa",textTransform:"uppercase",letterSpacing:1}}>Laguñada · {lagunadaVariant==="1ball"?"1 Pelota":"2 Pelotas"}</div>{rankedTeams.map((t,i)=>{const st=teamScores[t.id];const players=(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));return(<div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",borderBottom:i<activeTeamDefs.length-1?"1px solid #1e3a5f":"none"}}><div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`}</span><span style={{fontWeight:"bold",fontSize:15,color:t.color}}>{t.label}</span></div><div style={{fontSize:11,color:"#6b7280",marginTop:2}}>{players.join(", ")}</div></div><div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:"bold",color:st.diff<0?"#FFD700":st.diff===0?"#4ade80":"#f87171"}}>{st.played>0?fvp(st.diff):"—"}</div><div style={{fontSize:10,color:"#6b7280"}}>neto vs par</div></div></div>);})}</div>)}
+        {hasTeams&&(<div style={{background:"#0a0f1a",borderRadius:10,border:"1px solid #1e3a5f",overflow:"hidden",marginBottom:14}}><div style={{padding:"10px 14px",borderBottom:"1px solid #1e3a5f",fontSize:12,color:"#60a5fa",textTransform:"uppercase",letterSpacing:1}}>Laguñada · {lagunadaVariant==="1ball"?"1 Pelota":"2 Pelotas"}</div>{rankedTeams.map((t,i)=>{const st=teamScores[t.id];const fd=teamFinalDiff(t.id);const bonus=parseInt(teamBonus[t.id])||0;const players=(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));return(<div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",borderBottom:i<activeTeamDefs.length-1?"1px solid #1e3a5f":"none"}}><div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`}</span><span style={{fontWeight:"bold",fontSize:15,color:t.color}}>{t.label}</span></div><div style={{fontSize:11,color:"#6b7280",marginTop:2}}>{players.join(", ")}</div>{bonus>0&&<div style={{fontSize:10,color:"#fbbf24",marginTop:1}}>+{bonus} bonus</div>}</div><div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:"bold",color:fd<0?"#FFD700":fd===0?"#4ade80":"#f87171"}}>{st.played>0?fvp(fd):"—"}</div><div style={{fontSize:10,color:"#6b7280"}}>neto vs par</div></div></div>);})}</div>)}
         <button onClick={printResult} style={{width:"100%",padding:14,borderRadius:10,border:"none",background:"#16a34a",color:"#fff",cursor:"pointer",fontSize:16,fontWeight:"bold"}}>📄 Generar PDF / Imprimir</button>
       </div>
     </div>
@@ -523,7 +597,7 @@ export default function GolfScorecard() {
           <div style={{background:"#0f1a0f",border:"2px solid #dc2626",borderRadius:16,padding:24,maxWidth:320,width:"100%",textAlign:"center"}}>
             <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
             <div style={{fontSize:18,fontWeight:"bold",color:"#f87171",marginBottom:8}}>¿Nueva ronda?</div>
-            <div style={{fontSize:14,color:"#6b7280",marginBottom:20}}>Se van a borrar todos los scores actuales de todos los jugadores. Esta acción no se puede deshacer.</div>
+            <div style={{fontSize:14,color:"#6b7280",marginBottom:20}}>Se van a borrar todos los scores actuales. Esta acción no se puede deshacer.</div>
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>s_showResetConfirm(false)} style={{flex:1,padding:"12px",borderRadius:10,border:"1px solid #374151",background:"transparent",color:"#9ca3af",cursor:"pointer",fontSize:14,fontWeight:"bold"}}>Cancelar</button>
               <button onClick={nuevaRonda} style={{flex:1,padding:"12px",borderRadius:10,border:"none",background:"#dc2626",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:"bold"}}>{syncing?"Borrando...":"Sí, borrar todo"}</button>
@@ -676,18 +750,37 @@ export default function GolfScorecard() {
           {!hasTeams
             ?<div style={{color:"#4b5563",textAlign:"center",marginTop:40,fontSize:14}}><div style={{fontSize:30,marginBottom:10}}>🤝</div>Asigná jugadores a equipos en ⚙️</div>
             :<>
+              {/* Tarjetas de equipo con BONUS */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-                {rankedTeams.map((t,i)=>{const st=teamScores[t.id];const players=(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));const isLead=i===0&&st.played>0&&st.diff<(teamScores[rankedTeams[1]?.id]?.diff??Infinity);const teamSFtotal=players.reduce((acc,p)=>acc+playerSF(p),0);
+                {rankedTeams.map((t,i)=>{
+                  const st=teamScores[t.id];
+                  const fd=teamFinalDiff(t.id);
+                  const bonus=parseInt(teamBonus[t.id])||0;
+                  const players=(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));
+                  const isLead=i===0&&st.played>0&&fd<teamFinalDiff(rankedTeams[1]?.id);
+                  const teamSFtotal=players.reduce((acc,p)=>acc+playerSF(p),0);
                   return(<div key={t.id} style={{background:t.bg,border:`2px solid ${isLead?"#FFD700":t.border}`,borderRadius:12,padding:"12px 10px",textAlign:"center",position:"relative"}}>
                     {isLead&&st.played>0&&<div style={{position:"absolute",top:-8,left:"50%",transform:"translateX(-50%)",fontSize:16}}>🏆</div>}
                     <div style={{fontSize:11,color:t.color,fontWeight:"bold",marginBottom:2}}>{t.label}</div>
                     <div style={{fontSize:10,color:"#6b7280",marginBottom:6}}>{players.join(", ")}</div>
-                    <div style={{fontSize:26,fontWeight:"bold",color:st.diff<0?"#FFD700":st.diff===0?"#4ade80":"#f87171"}}>{st.played>0?fvp(st.diff):"—"}</div>
-                    <div style={{fontSize:9,color:"#6b7280",marginBottom:gameMode==="ambos"?4:0}}>Laguñada · {st.played}/18</div>
-                    {gameMode==="ambos"&&st.played>0&&<div style={{borderTop:"1px solid rgba(255,255,255,0.08)",paddingTop:4,marginTop:2}}><div style={{fontSize:13,fontWeight:"bold",color:"#4ade80"}}>{teamSFtotal} pts SF</div></div>}
+                    <div style={{fontSize:26,fontWeight:"bold",color:fd<0?"#FFD700":fd===0?"#4ade80":"#f87171"}}>{st.played>0?fvp(fd):"—"}</div>
+                    <div style={{fontSize:9,color:"#6b7280"}}>Laguñada · {st.played}/18</div>
+                    {/* BONUS input */}
+                    <div style={{marginTop:6,borderTop:"1px solid rgba(255,255,255,0.1)",paddingTop:6,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                      <span style={{fontSize:10,color:"#fbbf24",fontWeight:"bold"}}>Bonus</span>
+                      <input
+                        type="number" min="0" max="99"
+                        value={teamBonus[t.id]??""} 
+                        onChange={e=>{const nb={...teamBonus,[t.id]:e.target.value};saveBonus(nb);}}
+                        placeholder="0"
+                        style={{width:44,background:"#1a1400",border:"1px solid #92400e",borderRadius:6,color:"#fbbf24",fontSize:15,fontWeight:"bold",padding:"3px 4px",textAlign:"center",outline:"none"}}
+                      />
+                    </div>
+                    {gameMode==="ambos"&&st.played>0&&<div style={{borderTop:"1px solid rgba(255,255,255,0.08)",paddingTop:4,marginTop:4}}><div style={{fontSize:13,fontWeight:"bold",color:"#4ade80"}}>{teamSFtotal} pts SF</div></div>}
                   </div>);
                 })}
               </div>
+
               <div style={{background:"#0f1a0f",borderRadius:10,border:"1px solid #1a2e1a",overflow:"hidden",marginBottom:gameMode==="ambos"?14:0}}>
                 <div style={{padding:"8px 14px",borderBottom:"1px solid #1a2e1a",fontSize:11,color:"#6b7280",textTransform:"uppercase",letterSpacing:1}}>Laguñada · hoyo a hoyo</div>
                 <div style={{overflowX:"auto"}}>
@@ -720,7 +813,7 @@ export default function GolfScorecard() {
             <div style={{marginTop:18}}>
               <div style={{fontSize:12,color:"#6b7280",marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>🤝 Laguñada — {lagunadaVariant==="1ball"?"1 Pelota":"2 Pelotas"}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                {rankedTeams.map((t,i)=>{const st=teamScores[t.id];const players=(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));const isLead=i===0&&st.played>0&&st.diff<(teamScores[rankedTeams[1]?.id]?.diff??Infinity);return(<div key={t.id} style={{background:t.bg,border:`2px solid ${isLead?"#FFD700":t.border}`,borderRadius:12,padding:"12px 10px",textAlign:"center",position:"relative"}}>{isLead&&st.played>0&&<div style={{position:"absolute",top:-8,left:"50%",transform:"translateX(-50%)",fontSize:14}}>🏆</div>}<div style={{fontSize:10,color:t.color,fontWeight:"bold",marginBottom:2}}>{t.label}</div><div style={{fontSize:9,color:"#6b7280",marginBottom:6}}>{players.join(", ")}</div><div style={{fontSize:26,fontWeight:"bold",color:st.diff<0?"#FFD700":st.diff===0?"#4ade80":"#f87171"}}>{st.played>0?fvp(st.diff):"—"}</div><div style={{fontSize:9,color:"#6b7280"}}>{st.played}/18</div></div>);})}
+                {rankedTeams.map((t,i)=>{const st=teamScores[t.id];const fd=teamFinalDiff(t.id);const bonus=parseInt(teamBonus[t.id])||0;const players=(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));const isLead=i===0&&st.played>0&&fd<teamFinalDiff(rankedTeams[1]?.id);return(<div key={t.id} style={{background:t.bg,border:`2px solid ${isLead?"#FFD700":t.border}`,borderRadius:12,padding:"12px 10px",textAlign:"center",position:"relative"}}>{isLead&&st.played>0&&<div style={{position:"absolute",top:-8,left:"50%",transform:"translateX(-50%)",fontSize:14}}>🏆</div>}<div style={{fontSize:10,color:t.color,fontWeight:"bold",marginBottom:2}}>{t.label}</div><div style={{fontSize:9,color:"#6b7280",marginBottom:4}}>{players.join(", ")}</div><div style={{fontSize:26,fontWeight:"bold",color:fd<0?"#FFD700":fd===0?"#4ade80":"#f87171"}}>{st.played>0?fvp(fd):"—"}</div>{bonus>0&&<div style={{fontSize:9,color:"#fbbf24"}}>+{bonus} bonus</div>}<div style={{fontSize:9,color:"#6b7280"}}>{st.played}/18</div></div>);})}
               </div>
             </div>
           )}
@@ -743,12 +836,13 @@ export default function GolfScorecard() {
               const myTeamV=tm?lagHoleScore(ap,hole,scores,handicaps,lagunadaVariant,HCP_HOLE):null;
               const myTeamDiff=myTeamV!==null?myTeamV-holePar(hole,lagunadaVariant,PAR):null;
               return(
-                <div key={hole} onClick={()=>handleCell(myPlayer,hole)} style={{background:"#0f1a0f",border:`1px solid ${isActive?"#4ade80":"#1a2e1a"}`,borderRadius:10,padding:"8px 6px",textAlign:"center",cursor:"pointer"}}>
-                  <div style={{fontSize:9,color:"#6b7280"}}>H{hole} · P{par}{extra>0?`+${extra}`:""}</div>
-                  <div style={{fontSize:8,color:"#374151",marginBottom:1}}>HCP{hHcp}</div>
-                  <div style={{fontSize:24,fontWeight:"bold",color:s?scoreColor(s,par):"#4b5563"}}>{s||"—"}</div>
-                  {isSF&&<div style={{fontSize:12,fontWeight:"bold",color:info?info.color:"#374151"}}>{pts!==null?`${pts}pt${pts!==1?"s":""}`:s?"0pts":"—"}</div>}
-                  {info&&isSF&&<div style={{fontSize:8,color:info.color}}>{info.label}</div>}
+                <div key={hole} onClick={()=>handleCell(myPlayer,hole)} style={{background:"#0f1a0f",border:`2px solid ${isActive?"#4ade80":"#1a2e1a"}`,borderRadius:10,padding:"10px 6px",textAlign:"center",cursor:"pointer"}}>
+                  <div style={{fontSize:10,color:"#6b7280",fontWeight:"bold"}}>H{hole} · P{par}{extra>0?`+${extra}`:""}</div>
+                  <div style={{fontSize:9,color:"#374151",marginBottom:2}}>HCP{hHcp}</div>
+                  {/* Score grande y en negrita */}
+                  <div style={{fontSize:30,fontWeight:"900",color:s?scoreColor(s,par):"#4b5563",lineHeight:1.1}}>{s||"—"}</div>
+                  {isSF&&<div style={{fontSize:13,fontWeight:"bold",color:info?info.color:"#374151",marginTop:2}}>{pts!==null?`${pts}pt${pts!==1?"s":""}`:s?"0pts":"—"}</div>}
+                  {info&&isSF&&<div style={{fontSize:9,color:info.color}}>{info.label}</div>}
                   {tm&&isSF&&(
                     <div style={{marginTop:2,borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:2}}>
                       {isResting
@@ -766,7 +860,7 @@ export default function GolfScorecard() {
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:"#6b7280"}}>Score bruto</span><span style={{fontWeight:"bold"}}>{playerTotal(myPlayer)||"—"}</span></div>
             {isSF&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:hasTeams&&playerTeam(myPlayer)?4:0}}><span style={{color:"#6b7280"}}>Puntos Stableford</span><span style={{fontWeight:"bold",color:sfc(playerSF(myPlayer)),fontSize:18}}>{playerSF(myPlayer)} pts</span></div>}
             {gameMode==="medal"&&<><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:"#6b7280"}}>vs Par (bruto)</span><span style={{fontWeight:"bold",color:vpc(playerVsPar(myPlayer))}}>{holesPlayed(myPlayer)>0?fvp(playerVsPar(myPlayer)):"—"}</span></div><div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#6b7280"}}>vs Par (neto)</span><span style={{fontWeight:"bold",color:vpc(playerNet(myPlayer))}}>{holesPlayed(myPlayer)>0?fvp(playerNet(myPlayer)):"—"}</span></div></>}
-            {playerTeam(myPlayer)&&(()=>{const tm=playerTeam(myPlayer);const st=teamScores[tm.id];return(<div style={{marginTop:8,borderTop:"1px solid #1a2e1a",paddingTop:8}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}><span style={{color:tm.color,fontSize:12,fontWeight:"bold"}}>{tm.label} — Laguñada</span><span style={{fontWeight:"bold",fontSize:16,color:st.diff<0?"#FFD700":st.diff===0?"#4ade80":"#f87171"}}>{st.played>0?fvp(st.diff):"—"}</span></div><div style={{fontSize:10,color:"#6b7280"}}>{st.played}/18 · {lagunadaVariant==="1ball"?"mejor neto":"2 mejores netos"}</div></div>);})()}
+            {playerTeam(myPlayer)&&(()=>{const tm=playerTeam(myPlayer);const fd=teamFinalDiff(tm.id);return(<div style={{marginTop:8,borderTop:"1px solid #1a2e1a",paddingTop:8}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}><span style={{color:tm.color,fontSize:12,fontWeight:"bold"}}>{tm.label} — Laguñada</span><span style={{fontWeight:"bold",fontSize:16,color:fd<0?"#FFD700":fd===0?"#4ade80":"#f87171"}}>{teamScores[tm.id].played>0?fvp(fd):"—"}</span></div><div style={{fontSize:10,color:"#6b7280"}}>{teamScores[tm.id].played}/18 · {lagunadaVariant==="1ball"?"mejor neto":"2 mejores netos"}</div></div>);})()}
           </div>
         </div>
       )}
@@ -800,7 +894,7 @@ export default function GolfScorecard() {
                       const s=scores[player]?.[hole],par=PAR[hole-1],pts=s?sfPoints(s,par,hcp,HCP_HOLE[hole-1]):null,isActive=activePlayer===player&&activeHole===hole;
                       const ap=tm?activePlayers(rotation,tm.id,hole):[player];const isResting=tm&&!ap.includes(player);
                       return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"2px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":"transparent",border:isActive?"1px solid #4ade80":"1px solid transparent"}}>
-                        <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:12}}>{s||"·"}</div>
+                        <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:13}}>{s||"·"}</div>
                         {isSF&&s&&<div style={{fontSize:9,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
                         {isResting&&s&&<div style={{fontSize:7,color:"#4b5563",lineHeight:1}}>—lag</div>}
                       </td>);
@@ -810,7 +904,7 @@ export default function GolfScorecard() {
                       const s=scores[player]?.[hole],par=PAR[hole-1],pts=s?sfPoints(s,par,hcp,HCP_HOLE[hole-1]):null,isActive=activePlayer===player&&activeHole===hole;
                       const ap=tm?activePlayers(rotation,tm.id,hole):[player];const isResting=tm&&!ap.includes(player);
                       return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"2px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":"transparent",border:isActive?"1px solid #4ade80":"1px solid transparent"}}>
-                        <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:12}}>{s||"·"}</div>
+                        <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:13}}>{s||"·"}</div>
                         {isSF&&s&&<div style={{fontSize:9,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
                         {isResting&&s&&<div style={{fontSize:7,color:"#4b5563",lineHeight:1}}>—lag</div>}
                       </td>);
@@ -828,17 +922,25 @@ export default function GolfScorecard() {
 
       {/* ── INPUT BAR ────────────────────────────────────────────────── */}
       {activePlayer&&activeHole&&(
-        <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#0a2010",borderTop:"2px solid #16a34a",padding:"14px 18px",display:"flex",alignItems:"center",gap:12,zIndex:100}}>
+        <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#ffffff",borderTop:"3px solid #16a34a",padding:"16px 18px",display:"flex",alignItems:"center",gap:12,zIndex:100,boxShadow:"0 -4px 20px rgba(0,0,0,0.3)"}}>
           <div style={{flex:1}}>
-            <div style={{fontSize:12,color:"#6b7280"}}>{activePlayer} · Hoyo {activeHole} · Par {PAR[activeHole-1]}{isSF&&(()=>{const hcp=parseInt(handicaps[activePlayer])||0;const extra=strokesOnHole(hcp,HCP_HOLE[activeHole-1]);return extra>0?<span style={{color:"#4ade80"}}> (+{extra})</span>:null;})()}</div>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginTop:4}}>
-              <input type="number" min="1" max="12" value={inputVal} onChange={e=>s_iv(e.target.value)} onKeyDown={e=>e.key==="Enter"&&commitScore()} autoFocus style={{background:"#0f2a0f",border:"1px solid #16a34a",borderRadius:8,color:"#4ade80",fontSize:28,fontWeight:"bold",padding:"8px 10px",width:72,outline:"none",textAlign:"center"}} placeholder={PAR[activeHole-1].toString()}/>
-              {isSF&&inputVal&&(()=>{const hcp=parseInt(handicaps[activePlayer])||0;const pts=sfPoints(parseInt(inputVal),PAR[activeHole-1],hcp,HCP_HOLE[activeHole-1]);const info=sfLabel(pts);return info?(<div style={{textAlign:"center"}}><div style={{fontSize:22,fontWeight:"bold",color:info.color}}>{pts} pts</div><div style={{fontSize:11,color:info.color}}>{info.label}</div></div>):null;})()}
+            <div style={{fontSize:13,color:"#374151",fontWeight:"bold"}}>{activePlayer} · Hoyo {activeHole} · Par {PAR[activeHole-1]}{isSF&&(()=>{const hcp=parseInt(handicaps[activePlayer])||0;const extra=strokesOnHole(hcp,HCP_HOLE[activeHole-1]);return extra>0?<span style={{color:"#16a34a"}}> (+{extra})</span>:null;})()}</div>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginTop:6}}>
+              <input
+                type="number" min="1" max="12"
+                value={inputVal}
+                onChange={e=>s_iv(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&commitScore()}
+                autoFocus
+                style={{background:"#f9fafb",border:"2px solid #16a34a",borderRadius:10,color:"#111827",fontSize:42,fontWeight:"900",padding:"8px 10px",width:90,outline:"none",textAlign:"center",boxShadow:"inset 0 2px 4px rgba(0,0,0,0.06)"}}
+                placeholder={PAR[activeHole-1].toString()}
+              />
+              {isSF&&inputVal&&(()=>{const hcp=parseInt(handicaps[activePlayer])||0;const pts=sfPoints(parseInt(inputVal),PAR[activeHole-1],hcp,HCP_HOLE[activeHole-1]);const info=sfLabel(pts);return info?(<div style={{textAlign:"center"}}><div style={{fontSize:26,fontWeight:"bold",color:info.color}}>{pts} pts</div><div style={{fontSize:12,color:info.color,fontWeight:"bold"}}>{info.label}</div></div>):null;})()}
             </div>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>{s_ap(null);s_ah(null);s_iv("");}} style={{padding:"10px 14px",borderRadius:8,border:"1px solid #374151",background:"transparent",color:"#9ca3af",cursor:"pointer"}}>✕</button>
-            <button onClick={commitScore} style={{padding:"10px 18px",borderRadius:8,border:"none",background:"#16a34a",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:"bold"}}>
+            <button onClick={()=>{s_ap(null);s_ah(null);s_iv("");}} style={{padding:"12px 16px",borderRadius:10,border:"2px solid #d1d5db",background:"#f3f4f6",color:"#6b7280",cursor:"pointer",fontSize:16,fontWeight:"bold"}}>✕</button>
+            <button onClick={commitScore} style={{padding:"12px 20px",borderRadius:10,border:"none",background:"#16a34a",color:"#fff",cursor:"pointer",fontSize:15,fontWeight:"bold",boxShadow:"0 2px 8px rgba(22,163,74,0.4)"}}>
               {syncing?"...":"Guardar ⛳"}
             </button>
           </div>
@@ -851,7 +953,7 @@ export default function GolfScorecard() {
           <div style={{background:"#0f1a0f",border:"2px solid #dc2626",borderRadius:16,padding:24,maxWidth:320,width:"100%",textAlign:"center"}}>
             <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
             <div style={{fontSize:18,fontWeight:"bold",color:"#f87171",marginBottom:8}}>¿Nueva ronda?</div>
-            <div style={{fontSize:14,color:"#6b7280",marginBottom:20}}>Se van a borrar todos los scores actuales de todos los jugadores. Esta acción no se puede deshacer.</div>
+            <div style={{fontSize:14,color:"#6b7280",marginBottom:20}}>Se van a borrar todos los scores actuales. Esta acción no se puede deshacer.</div>
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>s_showResetConfirm(false)} style={{flex:1,padding:"12px",borderRadius:10,border:"1px solid #374151",background:"transparent",color:"#9ca3af",cursor:"pointer",fontSize:14,fontWeight:"bold"}}>Cancelar</button>
               <button onClick={nuevaRonda} style={{flex:1,padding:"12px",borderRadius:10,border:"none",background:"#dc2626",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:"bold"}}>{syncing?"Borrando...":"Sí, borrar todo"}</button>
