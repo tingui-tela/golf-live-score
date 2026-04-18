@@ -8,8 +8,7 @@ const COURSES_KEY = "golf_courses_v2";
 const BONUS_KEY   = "golf_bonus_v1";
 
 // ─── Google Sheets sync ──────────────────────────────────────────────
-const GAS_URL = "https://script.google.com/macros/s/AKfycby4b0aSHVbXSs8S5SG_AP6KQd4idqTXUZKrjeMJTuYhdtnA9dlkBeEqY9pFXcNDkxyM/exec";
-
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx8zgst5L8Pv66avrxJP_K03KNMo2akqYFufx3bfX3M2Vg8VJDNlNbxY_ZMb6MfzzZP/exec";
 const gasRead = async () => {
   try {
     const r = await fetch(GAS_URL, { redirect: "follow" });
