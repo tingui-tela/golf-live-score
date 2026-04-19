@@ -8,7 +8,8 @@ const COURSES_KEY = "golf_courses_v2";
 const BONUS_KEY   = "golf_bonus_v1";
 
 // ─── Google Sheets sync ──────────────────────────────────────────────
-const GAS_URL = "https://script.google.com/macros/s/AKfycbx8zgst5L8Pv66avrxJP_K03KNMo2akqYFufx3bfX3M2Vg8VJDNlNbxY_ZMb6MfzzZP/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycby4b0aSHVbXSs8S5SG_AP6KQd4idqTXUZKrjeMJTuYhdtnA9dlkBeEqY9pFXcNDkxyM/exec";
+
 const gasRead = async () => {
   try {
     const r = await fetch(GAS_URL, { redirect: "follow" });
@@ -749,14 +750,15 @@ export default function GolfScorecard() {
           {!hasTeams
             ?<div style={{color:"#4b5563",textAlign:"center",marginTop:40,fontSize:14}}><div style={{fontSize:30,marginBottom:10}}>🤝</div>Asigná jugadores a equipos en ⚙️</div>
             :<>
-              {/* Tarjetas de equipo con BONUS */}
+              {/* Tarjetas de equipo con BONUS — orden fijo A/B/C/D para que el input no salte */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-                {rankedTeams.map((t,i)=>{
+                {activeTeamDefs.map((t)=>{
                   const st=teamScores[t.id];
                   const fd=teamFinalDiff(t.id);
                   const bonus=parseInt(teamBonus[t.id])||0;
                   const players=(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));
-                  const isLead=i===0&&st.played>0&&fd<teamFinalDiff(rankedTeams[1]?.id);
+                  const rank=rankedTeams.findIndex(rt=>rt.id===t.id);
+                  const isLead=rank===0&&st.played>0&&fd<teamFinalDiff(rankedTeams[1]?.id);
                   const teamSFtotal=players.reduce((acc,p)=>acc+playerSF(p),0);
                   return(<div key={t.id} style={{background:t.bg,border:`2px solid ${isLead?"#FFD700":t.border}`,borderRadius:12,padding:"12px 10px",textAlign:"center",position:"relative"}}>
                     {isLead&&st.played>0&&<div style={{position:"absolute",top:-8,left:"50%",transform:"translateX(-50%)",fontSize:16}}>🏆</div>}
@@ -868,16 +870,16 @@ export default function GolfScorecard() {
       {/* ── GRID ─────────────────────────────────────────────────────── */}
       {view==="grid"&&(
         <div style={{overflowX:"auto",paddingBottom:80}}>
-          <table style={{borderCollapse:"collapse",minWidth:"100%",fontSize:11}}>
+          <table style={{borderCollapse:"collapse",minWidth:"100%",fontSize:13}}>
             <thead>
               <tr style={{background:"#0a1a0a"}}>
-                <th style={{padding:"8px 10px",textAlign:"left",color:"#6b7280",position:"sticky",left:0,background:"#0a1a0a",borderRight:"1px solid #1a2e1a",minWidth:90}}>Jugador</th>
-                {Array.from({length:9},(_,i)=>i+1).map(h=>(<th key={h} style={{padding:"4px 3px",textAlign:"center",color:"#6b7280",minWidth:32}}><div>H{h}</div><div style={{fontSize:9,color:"#374151"}}>P{PAR[h-1]}</div></th>))}
-                <th style={{padding:"4px",textAlign:"center",color:"#86efac",minWidth:36,background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534"}}><div style={{fontSize:10,fontWeight:"bold"}}>OUT</div><div style={{fontSize:9,color:"#374151"}}>{PAR.slice(0,9).reduce((a,b)=>a+b,0)}</div></th>
-                {Array.from({length:9},(_,i)=>i+10).map(h=>(<th key={h} style={{padding:"4px 3px",textAlign:"center",color:"#6b7280",minWidth:32}}><div>H{h}</div><div style={{fontSize:9,color:"#374151"}}>P{PAR[h-1]}</div></th>))}
-                <th style={{padding:"4px",textAlign:"center",color:"#86efac",minWidth:36,background:"#071a07",borderLeft:"2px solid #166634",borderRight:"2px solid #166634"}}><div style={{fontSize:10,fontWeight:"bold"}}>IN</div><div style={{fontSize:9,color:"#374151"}}>{PAR.slice(9).reduce((a,b)=>a+b,0)}</div></th>
-                <th style={{padding:"8px 6px",textAlign:"center",color:"#4ade80",minWidth:40}}>{gameMode==="medal"?"TOT":"PTS"}</th>
-                {gameMode==="medal"&&<th style={{padding:"8px 6px",textAlign:"center",color:"#FFD700",minWidth:40}}>NETO</th>}
+                <th style={{padding:"8px 10px",textAlign:"left",color:"#6b7280",position:"sticky",left:0,background:"#0a1a0a",borderRight:"1px solid #1a2e1a",minWidth:95}}>Jugador</th>
+                {Array.from({length:9},(_,i)=>i+1).map(h=>(<th key={h} style={{padding:"5px 3px",textAlign:"center",color:"#6b7280",minWidth:36}}><div style={{fontSize:12}}>H{h}</div><div style={{fontSize:10,color:"#374151"}}>P{PAR[h-1]}</div></th>))}
+                <th style={{padding:"4px",textAlign:"center",color:"#86efac",minWidth:38,background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534"}}><div style={{fontSize:11,fontWeight:"bold"}}>OUT</div><div style={{fontSize:10,color:"#374151"}}>{PAR.slice(0,9).reduce((a,b)=>a+b,0)}</div></th>
+                {Array.from({length:9},(_,i)=>i+10).map(h=>(<th key={h} style={{padding:"5px 3px",textAlign:"center",color:"#6b7280",minWidth:36}}><div style={{fontSize:12}}>H{h}</div><div style={{fontSize:10,color:"#374151"}}>P{PAR[h-1]}</div></th>))}
+                <th style={{padding:"4px",textAlign:"center",color:"#86efac",minWidth:38,background:"#071a07",borderLeft:"2px solid #166634",borderRight:"2px solid #166634"}}><div style={{fontSize:11,fontWeight:"bold"}}>IN</div><div style={{fontSize:10,color:"#374151"}}>{PAR.slice(9).reduce((a,b)=>a+b,0)}</div></th>
+                <th style={{padding:"8px 6px",textAlign:"center",color:"#4ade80",minWidth:42}}>{gameMode==="medal"?"TOT":"PTS"}</th>
+                {gameMode==="medal"&&<th style={{padding:"8px 6px",textAlign:"center",color:"#FFD700",minWidth:42}}>NETO</th>}
               </tr>
             </thead>
             <tbody>
@@ -886,31 +888,31 @@ export default function GolfScorecard() {
                 return(
                   <tr key={player} style={{borderBottom:"1px solid #0f1a0f",background:pi%2===0?"#0a0f0a":"#0d140d"}}>
                     <td style={{padding:"6px 10px",fontWeight:"bold",position:"sticky",left:0,background:myPlayer===player?"#052e16":pi%2===0?"#0a0f0a":"#0d140d",borderRight:"1px solid #1a2e1a",cursor:"pointer",color:myPlayer===player?"#4ade80":"#e2e8f0"}} onClick={()=>s_myPlayer(player)}>
-                      <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:12}}>{player}</span>{tm&&<span style={{fontSize:8,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 4px"}}>{tm.id}</span>}</div>
-                      {hcp>0&&<div style={{fontSize:9,color:"#6b7280",fontWeight:"normal"}}>HCP {hcp}</div>}
+                      <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:14}}>{player}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 4px"}}>{tm.id}</span>}</div>
+                      {hcp>0&&<div style={{fontSize:10,color:"#6b7280",fontWeight:"normal"}}>HCP {hcp}</div>}
                     </td>
                     {[1,2,3,4,5,6,7,8,9].map(hole=>{
                       const s=scores[player]?.[hole],par=PAR[hole-1],pts=s?sfPoints(s,par,hcp,HCP_HOLE[hole-1]):null,isActive=activePlayer===player&&activeHole===hole;
                       const ap=tm?activePlayers(rotation,tm.id,hole):[player];const isResting=tm&&!ap.includes(player);
-                      return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"2px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":"transparent",border:isActive?"1px solid #4ade80":"1px solid transparent"}}>
-                        <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:13}}>{s||"·"}</div>
-                        {isSF&&s&&<div style={{fontSize:9,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
-                        {isResting&&s&&<div style={{fontSize:7,color:"#4b5563",lineHeight:1}}>—lag</div>}
+                      return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"3px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":"transparent",border:isActive?"1px solid #4ade80":"1px solid transparent"}}>
+                        <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:15}}>{s||"·"}</div>
+                        {isSF&&s&&<div style={{fontSize:10,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
+                        {isResting&&s&&<div style={{fontSize:8,color:"#4b5563",lineHeight:1}}>—lag</div>}
                       </td>);
                     })}
-                    {(()=>{const os=[1,2,3,4,5,6,7,8,9].reduce((a,h)=>a+(scores[player]?.[h]||0),0);const osf=[1,2,3,4,5,6,7,8,9].reduce((a,h)=>{const s=scores[player]?.[h];return a+(s?sfPoints(s,PAR[h-1],hcp,HCP_HOLE[h-1])||0:0);},0);const op=[1,2,3,4,5,6,7,8,9].filter(h=>scores[player]?.[h]).length;return<td key="out" style={{textAlign:"center",fontWeight:"bold",padding:"4px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#86efac",fontSize:12}}>{op>0?(isSF?`${osf}p`:os):"—"}</td>;})()}
+                    {(()=>{const os=[1,2,3,4,5,6,7,8,9].reduce((a,h)=>a+(scores[player]?.[h]||0),0);const osf=[1,2,3,4,5,6,7,8,9].reduce((a,h)=>{const s=scores[player]?.[h];return a+(s?sfPoints(s,PAR[h-1],hcp,HCP_HOLE[h-1])||0:0);},0);const op=[1,2,3,4,5,6,7,8,9].filter(h=>scores[player]?.[h]).length;return<td key="out" style={{textAlign:"center",fontWeight:"bold",padding:"4px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#86efac",fontSize:13}}>{op>0?(isSF?`${osf}p`:os):"—"}</td>;})()}
                     {[10,11,12,13,14,15,16,17,18].map(hole=>{
                       const s=scores[player]?.[hole],par=PAR[hole-1],pts=s?sfPoints(s,par,hcp,HCP_HOLE[hole-1]):null,isActive=activePlayer===player&&activeHole===hole;
                       const ap=tm?activePlayers(rotation,tm.id,hole):[player];const isResting=tm&&!ap.includes(player);
-                      return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"2px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":"transparent",border:isActive?"1px solid #4ade80":"1px solid transparent"}}>
-                        <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:13}}>{s||"·"}</div>
-                        {isSF&&s&&<div style={{fontSize:9,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
-                        {isResting&&s&&<div style={{fontSize:7,color:"#4b5563",lineHeight:1}}>—lag</div>}
+                      return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"3px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":"transparent",border:isActive?"1px solid #4ade80":"1px solid transparent"}}>
+                        <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:15}}>{s||"·"}</div>
+                        {isSF&&s&&<div style={{fontSize:10,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
+                        {isResting&&s&&<div style={{fontSize:8,color:"#4b5563",lineHeight:1}}>—lag</div>}
                       </td>);
                     })}
-                    {(()=>{const is_=[10,11,12,13,14,15,16,17,18].reduce((a,h)=>a+(scores[player]?.[h]||0),0);const isf=[10,11,12,13,14,15,16,17,18].reduce((a,h)=>{const s=scores[player]?.[h];return a+(s?sfPoints(s,PAR[h-1],hcp,HCP_HOLE[h-1])||0:0);},0);const ip=[10,11,12,13,14,15,16,17,18].filter(h=>scores[player]?.[h]).length;return<td key="in" style={{textAlign:"center",fontWeight:"bold",padding:"4px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#86efac",fontSize:12}}>{ip>0?(isSF?`${isf}p`:is_):"—"}</td>;})()}
-                    <td style={{textAlign:"center",fontWeight:"bold",padding:"4px",color:isSF?sfc(sf):"#e2e8f0"}}>{holesPlayed(player)>0?(isSF?sf:tot):"—"}</td>
-                    {gameMode==="medal"&&<td style={{textAlign:"center",fontWeight:"bold",padding:"4px",color:holesPlayed(player)>0?vpc(net):"#374151"}}>{holesPlayed(player)>0?fvp(net):"—"}</td>}
+                    {(()=>{const is_=[10,11,12,13,14,15,16,17,18].reduce((a,h)=>a+(scores[player]?.[h]||0),0);const isf=[10,11,12,13,14,15,16,17,18].reduce((a,h)=>{const s=scores[player]?.[h];return a+(s?sfPoints(s,PAR[h-1],hcp,HCP_HOLE[h-1])||0:0);},0);const ip=[10,11,12,13,14,15,16,17,18].filter(h=>scores[player]?.[h]).length;return<td key="in" style={{textAlign:"center",fontWeight:"bold",padding:"4px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#86efac",fontSize:13}}>{ip>0?(isSF?`${isf}p`:is_):"—"}</td>;})()}
+                    <td style={{textAlign:"center",fontWeight:"bold",padding:"4px",fontSize:14,color:isSF?sfc(sf):"#e2e8f0"}}>{holesPlayed(player)>0?(isSF?sf:tot):"—"}</td>
+                    {gameMode==="medal"&&<td style={{textAlign:"center",fontWeight:"bold",padding:"4px",fontSize:14,color:holesPlayed(player)>0?vpc(net):"#374151"}}>{holesPlayed(player)>0?fvp(net):"—"}</td>}
                   </tr>
                 );
               })}
