@@ -253,6 +253,7 @@ export default function GolfScorecard() {
   const [syncing,s_syncing]       = useState(false);
   const [selectedPlayers,s_sel]   = useState([]);
   const [handicaps,s_hcaps]       = useState({});
+  const [handicapsMedal,s_hcapsM]  = useState({});
   const [playerList,s_plist]      = useState(ALL_PLAYERS);
   const [newPlayerName,s_npn]     = useState("");
   const [showAdd,s_showAdd]       = useState(false);
@@ -281,8 +282,8 @@ export default function GolfScorecard() {
   const minTeamSize = teamSizes.filter(s=>s>0).length>0?Math.min(...teamSizes.filter(s=>s>0)):0;
 
   // ── Save setup → local + Google Sheets ────────────────────────────
-  const saveSetup = async (sel,hcaps,plist,mode,lv,nt,tm,cid) => {
-    const data = {selectedPlayers:sel,handicaps:hcaps,playerList:plist,gameMode:mode,lagunadaVariant:lv,numTeams:nt,teams:tm,activeCourseId:cid};
+  const saveSetup = async (sel,hcaps,hcapsM,plist,mode,lv,nt,tm,cid) => {
+    const data = {selectedPlayers:sel,handicaps:hcaps,handicapsMedal:hcapsM,playerList:plist,gameMode:mode,lagunadaVariant:lv,numTeams:nt,teams:tm,activeCourseId:cid};
     try { localStorage.setItem(SETUP_KEY,JSON.stringify(data)); } catch(e) {}
     // Sync to GAS (no await para no bloquear UI)
     gasWrite(SETUP_KEY, JSON.stringify(data));
@@ -338,6 +339,7 @@ export default function GolfScorecard() {
           const d = JSON.parse(typeof setupRaw === "string" ? setupRaw : setupRaw);
           s_sel(d.selectedPlayers||[]);
           s_hcaps(d.handicaps||{});
+          s_hcapsM(d.handicapsMedal||{});
           s_plist(d.playerList||ALL_PLAYERS);
           s_mode(d.gameMode||"stableford");
           s_lv(d.lagunadaVariant||"1ball");
@@ -378,6 +380,7 @@ export default function GolfScorecard() {
             const d=JSON.parse(all[SETUP_KEY]);
             s_sel(d.selectedPlayers||[]);
             s_hcaps(d.handicaps||{});
+            s_hcapsM(d.handicapsMedal||{});
             s_plist(d.playerList||ALL_PLAYERS);
             s_mode(d.gameMode||"stableford");
             s_lv(d.lagunadaVariant||"1ball");
@@ -401,13 +404,14 @@ export default function GolfScorecard() {
     return ()=>clearInterval(iv);
   },[loadData]);
 
-  const togglePlayer=(p)=>{const n=selectedPlayers.includes(p)?selectedPlayers.filter(x=>x!==p):[...selectedPlayers,p];s_sel(n);saveSetup(n,handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
-  const setHandicap=(p,v)=>{const n={...handicaps,[p]:v};s_hcaps(n);saveSetup(selectedPlayers,n,playerList,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
-  const setMode=(m)=>{s_mode(m);saveSetup(selectedPlayers,handicaps,playerList,m,lagunadaVariant,numTeams,teams,activeCourseId);};
-  const setLV=(lv)=>{s_lv(lv);saveSetup(selectedPlayers,handicaps,playerList,gameMode,lv,numTeams,teams,activeCourseId);};
-  const setCourse=(id)=>{s_acid(id);saveSetup(selectedPlayers,handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams,id);};
-  const changeNumTeams=(nt)=>{const validIds=TEAM_DEFS.slice(0,nt).map(t=>t.id);const newTeams=Object.fromEntries(validIds.map(id=>[id,teams[id]||[]]));s_numTeams(nt);s_teams(newTeams);saveSetup(selectedPlayers,handicaps,playerList,gameMode,lagunadaVariant,nt,newTeams,activeCourseId);};
-  const assignTeam=(player,teamId)=>{const alreadyIn=teams[teamId]?.includes(player);const newTeams=Object.fromEntries(Object.entries(teams).map(([id,pls])=>[id,pls.filter(p=>p!==player)]));if(!alreadyIn)newTeams[teamId]=[...(newTeams[teamId]||[]),player];s_teams(newTeams);saveSetup(selectedPlayers,handicaps,playerList,gameMode,lagunadaVariant,numTeams,newTeams,activeCourseId);};
+  const togglePlayer=(p)=>{const n=selectedPlayers.includes(p)?selectedPlayers.filter(x=>x!==p):[...selectedPlayers,p];s_sel(n);saveSetup(n,handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
+  const setHandicap=(p,v)=>{const n={...handicaps,[p]:v};s_hcaps(n);saveSetup(selectedPlayers,n,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
+  const setHandicapMedal=(p,v)=>{const n={...handicapsMedal,[p]:v};s_hcapsM(n);saveSetup(selectedPlayers,handicaps,n,playerList,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
+  const setMode=(m)=>{s_mode(m);saveSetup(selectedPlayers,handicaps,handicapsMedal,playerList,m,lagunadaVariant,numTeams,teams,activeCourseId);};
+  const setLV=(lv)=>{s_lv(lv);saveSetup(selectedPlayers,handicaps,handicapsMedal,playerList,gameMode,lv,numTeams,teams,activeCourseId);};
+  const setCourse=(id)=>{s_acid(id);saveSetup(selectedPlayers,handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams,id);};
+  const changeNumTeams=(nt)=>{const validIds=TEAM_DEFS.slice(0,nt).map(t=>t.id);const newTeams=Object.fromEntries(validIds.map(id=>[id,teams[id]||[]]));s_numTeams(nt);s_teams(newTeams);saveSetup(selectedPlayers,handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,nt,newTeams,activeCourseId);};
+  const assignTeam=(player,teamId)=>{const alreadyIn=teams[teamId]?.includes(player);const newTeams=Object.fromEntries(Object.entries(teams).map(([id,pls])=>[id,pls.filter(p=>p!==player)]));if(!alreadyIn)newTeams[teamId]=[...(newTeams[teamId]||[]),player];s_teams(newTeams);saveSetup(selectedPlayers,handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,newTeams,activeCourseId);};
   const playerTeam=(player)=>activeTeamDefs.find(t=>(teams[t.id]||[]).includes(player));
 
   // saveCourse ahora sincroniza también a GAS
@@ -415,12 +419,12 @@ export default function GolfScorecard() {
     const updated=courses.find(x=>x.id===c.id)?courses.map(x=>x.id===c.id?c:x):[...courses,c];
     s_courses(updated);s_acid(c.id);
     saveCourses(updated);
-    saveSetup(selectedPlayers,handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams,c.id);
+    saveSetup(selectedPlayers,handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams,c.id);
     s_editing(null);
   };
-  const deleteCourse=(id)=>{if(DEFAULT_COURSES.find(c=>c.id===id))return;const updated=courses.filter(c=>c.id!==id);s_courses(updated);if(activeCourseId===id){s_acid("san_andres");saveSetup(selectedPlayers,handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams,"san_andres");}saveCourses(updated);};
+  const deleteCourse=(id)=>{if(DEFAULT_COURSES.find(c=>c.id===id))return;const updated=courses.filter(c=>c.id!==id);s_courses(updated);if(activeCourseId===id){s_acid("san_andres");saveSetup(selectedPlayers,handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams,"san_andres");}saveCourses(updated);};
 
-  const addNewPlayer=()=>{const name=newPlayerName.trim();if(!name||playerList.includes(name))return;const nl=[...playerList,name],ns=[...selectedPlayers,name];s_plist(nl);s_sel(ns);s_npn("");s_showAdd(false);saveSetup(ns,handicaps,nl,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
+  const addNewPlayer=()=>{const name=newPlayerName.trim();if(!name||playerList.includes(name))return;const nl=[...playerList,name],ns=[...selectedPlayers,name];s_plist(nl);s_sel(ns);s_npn("");s_showAdd(false);saveSetup(ns,handicaps,handicapsMedal,nl,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
 
   const [showResetConfirm, s_showResetConfirm] = useState(false);
 
@@ -433,8 +437,8 @@ export default function GolfScorecard() {
     s_teams(makeEmptyTeams(numTeams));
     s_teamBonus({});
     gasWrite(BONUS_KEY, JSON.stringify({}));
-    try { localStorage.setItem(SETUP_KEY, JSON.stringify({selectedPlayers:[],handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams:makeEmptyTeams(numTeams),activeCourseId})); } catch(e) {}
-    gasWrite(SETUP_KEY, JSON.stringify({selectedPlayers:[],handicaps,playerList,gameMode,lagunadaVariant,numTeams,teams:makeEmptyTeams(numTeams),activeCourseId}));
+    try { localStorage.setItem(SETUP_KEY, JSON.stringify({selectedPlayers:[],handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams:makeEmptyTeams(numTeams),activeCourseId})); } catch(e) {}
+    gasWrite(SETUP_KEY, JSON.stringify({selectedPlayers:[],handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams:makeEmptyTeams(numTeams),activeCourseId}));
     s_view("setup");
     s_setupTab("players");
     s_showResetConfirm(false);
@@ -455,7 +459,7 @@ export default function GolfScorecard() {
   const holesPlayed=(p)=>Object.keys(scores[p]||{}).length;
   const playerSF=(p)=>{const hcp=parseInt(handicaps[p])||0;const s=scores[p]||{};let pts=0;for(let h=1;h<=HOLES;h++)if(s[h])pts+=sfPoints(s[h],PAR[h-1],hcp,HCP_HOLE[h-1])||0;return pts;};
   const playerVsPar=(p)=>{const s=scores[p]||{};let t=0,pp=0;for(let h=1;h<=HOLES;h++)if(s[h]){t+=s[h];pp+=PAR[h-1];}return t-pp;};
-  const playerNet=(p)=>playerVsPar(p)-(parseInt(handicaps[p])||0);
+  const playerNet=(p)=>playerVsPar(p)-(parseInt(handicapsMedal[p])||0);
 
   const PLAYERS=selectedPlayers;
   const allDone=PLAYERS.length>0&&PLAYERS.every(p=>holesPlayed(p)===18);
@@ -496,10 +500,10 @@ export default function GolfScorecard() {
   const printResult=()=>{
     const today=new Date().toLocaleDateString("es-AR",{day:"2-digit",month:"long",year:"numeric"});
     const modeLabel=gameMode==="medal"?"Medal":"Stableford";
-    const indRows=finalBoard.map((p,i)=>{const hcp=parseInt(handicaps[p])||0,sf=playerSF(p),net=playerNet(p),tm=playerTeam(p);const pos=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;const res=gameMode==="medal"?`<td style="text-align:center;font-weight:bold">${playerTotal(p)} (${fvp(net)} neto)</td>`:`<td style="text-align:center;font-weight:bold;color:#15803d">${sf} pts</td>`;return`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:7px;text-align:center">${pos}</td><td style="padding:7px;font-weight:bold">${p}${tm?` <span style="font-size:10px;padding:1px 5px;background:#dbeafe;border-radius:3px">${tm.label}</span>`:""}</td><td style="padding:7px;text-align:center;color:#6b7280">${hcp||"-"}</td>${res}</tr>`;}).join("");
+    const indRows=finalBoard.map((p,i)=>{const hcp=parseInt(handicaps[p])||0,sf=playerSF(p),net=playerNet(p),tm=playerTeam(p);const pos=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;const res=gameMode==="medal"?`<td style="text-align:center;font-weight:bold">${playerTotal(p)} (${fvp(net)} neto)</td>`:`<td style="text-align:center;font-weight:bold;color:#15803d">${sf} pts</td>`;return`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:7px;text-align:center">${pos}</td><td style="padding:7px;font-weight:bold">${p}${tm?` <span style="font-size:10px;padding:1px 5px;background:#dbeafe;border-radius:3px">${tm.label}</span>`:""}</td><td style="padding:7px;text-align:center;color:#6b7280">${gameMode==="medal"?(parseInt(handicapsMedal[p])||"-"):(hcp||"-")}</td>${res}</tr>`;}).join("");
     let lagSection="";
     if(hasTeams){const vLabel=lagunadaVariant==="1ball"?"1 Pelota":"2 Pelotas";const tRows=rankedTeams.map((t,i)=>{const fd=teamFinalDiff(t.id);const bonus=parseInt(teamBonus[t.id])||0;const players=(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));const pos=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;return`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:7px;text-align:center">${pos}</td><td style="padding:7px;font-weight:bold">${t.label}</td><td style="padding:7px;font-size:12px">${players.join(", ")}</td><td style="padding:7px;text-align:center;font-weight:bold;color:${fd<0?"#15803d":fd>0?"#dc2626":"#374151"}">${teamScores[t.id].played>0?fvp(fd):"—"}${bonus>0?` (+${bonus} bonus)`:""}</td></tr>`;}).join("");lagSection=`<h2 style="font-size:14px;color:#1e40af;margin:18px 0 6px">Lagunada ${vLabel}</h2><table style="margin-bottom:14px"><thead><tr><th>Pos.</th><th style="text-align:left">Equipo</th><th style="text-align:left">Jugadores</th><th>Neto vs Par</th></tr></thead><tbody>${tRows}</tbody></table>`;}
-    const holeRows=finalBoard.map(p=>{const hcp=parseInt(handicaps[p])||0;const cells=Array.from({length:HOLES},(_,i)=>i+1).map(h=>{const s=scores[p]?.[h];const pts=s?sfPoints(s,PAR[h-1],hcp,HCP_HOLE[h-1]):null;const bg=!s?"":s-PAR[h-1]<=-2?"#fef9c3":s-PAR[h-1]===-1?"#ffedd5":s-PAR[h-1]===0?"#dcfce7":s-PAR[h-1]===1?"#f1f5f9":"#fee2e2";return`<td style="padding:3px;text-align:center;background:${bg};font-size:10px"><div style="font-weight:bold">${s||"-"}</div>${gameMode!=="medal"?`<div style="font-size:8px;color:#15803d">${pts!==null?pts+"p":""}</div>`:""}</td>`;}).join("");return`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:3px 7px;font-weight:bold;font-size:11px;white-space:nowrap">${p}<br><span style="font-size:9px;color:#6b7280;font-weight:normal">HCP ${handicaps[p]||0}</span></td>${cells}<td style="padding:3px 5px;text-align:center;font-weight:bold;font-size:11px">${gameMode==="medal"?playerTotal(p):playerSF(p)+" pts"}</td>${gameMode==="medal"?`<td style="padding:3px 5px;text-align:center;font-weight:bold;font-size:11px;color:#15803d">${fvp(playerNet(p))}</td>`:""}</tr>`;}).join("");
+    const holeRows=finalBoard.map(p=>{const hcp=parseInt(handicaps[p])||0;const cells=Array.from({length:HOLES},(_,i)=>i+1).map(h=>{const s=scores[p]?.[h];const pts=s?sfPoints(s,PAR[h-1],hcp,HCP_HOLE[h-1]):null;const bg=!s?"":s-PAR[h-1]<=-2?"#fef9c3":s-PAR[h-1]===-1?"#ffedd5":s-PAR[h-1]===0?"#dcfce7":s-PAR[h-1]===1?"#f1f5f9":"#fee2e2";return`<td style="padding:3px;text-align:center;background:${bg};font-size:10px"><div style="font-weight:bold">${s||"-"}</div>${gameMode!=="medal"?`<div style="font-size:8px;color:#15803d">${pts!==null?pts+"p":""}</div>`:""}</td>`;}).join("");return`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:3px 7px;font-weight:bold;font-size:11px;white-space:nowrap">${p}<br><span style="font-size:9px;color:#6b7280;font-weight:normal">SF ${handicaps[p]||0}/M ${handicapsMedal[p]||0}</span></td>${cells}<td style="padding:3px 5px;text-align:center;font-weight:bold;font-size:11px">${gameMode==="medal"?playerTotal(p):playerSF(p)+" pts"}</td>${gameMode==="medal"?`<td style="padding:3px 5px;text-align:center;font-weight:bold;font-size:11px;color:#15803d">${fvp(playerNet(p))}</td>`:""}</tr>`;}).join("");
     const parRow=Array.from({length:HOLES},(_,i)=>`<td style="padding:2px 3px;text-align:center;font-size:9px;color:#6b7280">${PAR[i]}</td>`).join("");
     const hcpRow=Array.from({length:HOLES},(_,i)=>`<td style="padding:2px 3px;text-align:center;font-size:8px;color:#9ca3af">${HCP_HOLE[i]}</td>`).join("");
     const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${activeCourse.name} ${today}</title><style>body{font-family:Georgia,serif;margin:0;padding:14px;color:#111;background:#fff}h1{margin:0;font-size:20px;color:#166534}.sub{color:#6b7280;font-size:12px;margin:3px 0 14px}table{border-collapse:collapse;width:100%}th{background:#f0fdf4;padding:7px;font-size:11px;color:#166534;border-bottom:2px solid #bbf7d0}@media print{body{padding:8px}}</style></head><body><h1>⛳ ${activeCourse.name}</h1><div class="sub">${modeLabel} · ${today} · Par ${TOTAL_PAR}</div><h2 style="font-size:13px;color:#166534;margin-bottom:6px">Resultado Final</h2><table style="margin-bottom:18px"><thead><tr><th style="width:34px">Pos.</th><th style="text-align:left">Jugador</th><th>HCP</th><th>${gameMode==="medal"?"Score / Neto":"Puntos"}</th></tr></thead><tbody>${indRows}</tbody></table>${lagSection}<h2 style="font-size:13px;color:#166634;margin-bottom:6px">Scorecard</h2><div style="overflow-x:auto"><table style="font-size:10px"><thead><tr style="background:#f0fdf4"><th style="text-align:left;padding:3px 7px">Jugador</th>${Array.from({length:HOLES},(_,i)=>`<th style="padding:2px 3px;text-align:center">H${i+1}</th>`).join("")}<th>${gameMode==="medal"?"TOT":"PTS"}</th>${gameMode==="medal"?"<th>NETO</th>":""}</tr><tr><td style="padding:2px 7px;font-size:9px;color:#6b7280">Par</td>${parRow}<td></td></tr><tr><td style="padding:2px 7px;font-size:8px;color:#9ca3af">HCP</td>${hcpRow}<td></td></tr></thead><tbody>${holeRows}</tbody></table></div><div style="margin-top:14px;font-size:10px;color:#9ca3af;text-align:center">Golf Live Score · ${activeCourse.name}</div></body></html>`;
@@ -565,7 +569,7 @@ export default function GolfScorecard() {
         </div>
         <div style={{background:"#0f1a0f",borderRadius:10,border:"1px solid #1a2e1a",overflow:"hidden",marginBottom:14}}>
           <div style={{padding:"10px 14px",borderBottom:"1px solid #1a2e1a",fontSize:12,color:"#6b7280",textTransform:"uppercase",letterSpacing:1}}>Ranking individual</div>
-          {finalBoard.map((p,i)=>{const hcp=parseInt(handicaps[p])||0,sf=playerSF(p),net=playerNet(p),tm=playerTeam(p);return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:i<finalBoard.length-1?"1px solid #1a2e1a":"none",background:i===0?"#0a2010":"transparent"}}><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{fontSize:18,width:26,textAlign:"center"}}>{i<3?medal[i+1]:<span style={{color:"#4b5563",fontSize:13}}>#{i+1}</span>}</div><div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:"bold",fontSize:14}}>{p}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 5px"}}>{tm.label}</span>}</div><div style={{fontSize:11,color:"#6b7280"}}>HCP {hcp} · Bruto: {playerTotal(p)}</div></div></div><div style={{textAlign:"right"}}>{gameMode==="medal"?<><div style={{fontSize:18,fontWeight:"bold",color:vpc(net)}}>{fvp(net)}</div><div style={{fontSize:10,color:"#6b7280"}}>neto</div></>:<div style={{fontSize:20,fontWeight:"bold",color:sfc(sf)}}>{sf} pts</div>}</div></div>);})}
+          {finalBoard.map((p,i)=>{const hcp=parseInt(handicaps[p])||0,sf=playerSF(p),net=playerNet(p),tm=playerTeam(p);return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:i<finalBoard.length-1?"1px solid #1a2e1a":"none",background:i===0?"#0a2010":"transparent"}}><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{fontSize:18,width:26,textAlign:"center"}}>{i<3?medal[i+1]:<span style={{color:"#4b5563",fontSize:13}}>#{i+1}</span>}</div><div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:"bold",fontSize:14}}>{p}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 5px"}}>{tm.label}</span>}</div><div style={{fontSize:11,color:"#6b7280"}}>SF {hcp} / M {parseInt(handicapsMedal[p])||0} · Bruto: {playerTotal(p)}</div></div></div><div style={{textAlign:"right"}}>{gameMode==="medal"?<><div style={{fontSize:18,fontWeight:"bold",color:vpc(net)}}>{fvp(net)}</div><div style={{fontSize:10,color:"#6b7280"}}>neto</div></>:<div style={{fontSize:20,fontWeight:"bold",color:sfc(sf)}}>{sf} pts</div>}</div></div>);})}
         </div>
         {hasTeams&&(<div style={{background:"#0a0f1a",borderRadius:10,border:"1px solid #1e3a5f",overflow:"hidden",marginBottom:14}}><div style={{padding:"10px 14px",borderBottom:"1px solid #1e3a5f",fontSize:12,color:"#60a5fa",textTransform:"uppercase",letterSpacing:1}}>Laguñada · {lagunadaVariant==="1ball"?"1 Pelota":"2 Pelotas"}</div>{rankedTeams.map((t,i)=>{const st=teamScores[t.id];const fd=teamFinalDiff(t.id);const bonus=parseInt(teamBonus[t.id])||0;const players=(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));return(<div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",borderBottom:i<activeTeamDefs.length-1?"1px solid #1e3a5f":"none"}}><div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`}</span><span style={{fontWeight:"bold",fontSize:15,color:t.color}}>{t.label}</span></div><div style={{fontSize:11,color:"#6b7280",marginTop:2}}>{players.join(", ")}</div>{bonus>0&&<div style={{fontSize:10,color:"#fbbf24",marginTop:1}}>+{bonus} bonus</div>}</div><div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:"bold",color:fd<0?"#FFD700":fd===0?"#4ade80":"#f87171"}}>{st.played>0?fvp(fd):"—"}</div><div style={{fontSize:10,color:"#6b7280"}}>neto vs par</div></div></div>);})}</div>)}
         <button onClick={printResult} style={{width:"100%",padding:14,borderRadius:10,border:"none",background:"#16a34a",color:"#fff",cursor:"pointer",fontSize:16,fontWeight:"bold"}}>📄 Generar PDF / Imprimir</button>
@@ -655,7 +659,7 @@ export default function GolfScorecard() {
               <div key={p} style={{background:sel?"#0a2010":"#0f1a0f",border:`1px solid ${sel?"#16a34a":"#1a2e1a"}`,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
                 <div onClick={()=>togglePlayer(p)} style={{width:22,height:22,borderRadius:5,border:`2px solid ${sel?"#16a34a":"#374151"}`,background:sel?"#16a34a":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{sel&&<span style={{color:"#fff",fontSize:14}}>✓</span>}</div>
                 <div onClick={()=>togglePlayer(p)} style={{flex:1,fontWeight:sel?"bold":"normal",color:sel?"#e2e8f0":"#6b7280",cursor:"pointer",fontSize:14}}>{p}</div>
-                {sel&&<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}><span style={{fontSize:11,color:"#6b7280"}}>HCP</span><input type="number" min="0" max="54" value={handicaps[p]??""} onChange={e=>setHandicap(p,e.target.value)} placeholder="0" style={{width:52,background:"#0f2a0f",border:"1px solid #166534",borderRadius:6,color:"#4ade80",fontSize:16,fontWeight:"bold",padding:"4px 6px",textAlign:"center",outline:"none"}}/></div>}
+                {sel&&<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><span style={{fontSize:9,color:"#4ade80",fontWeight:"bold"}}>SF</span><input type="number" min="0" max="54" value={handicaps[p]??""} onChange={e=>setHandicap(p,e.target.value)} placeholder="0" style={{width:48,background:"#0f2a0f",border:"1px solid #166534",borderRadius:6,color:"#4ade80",fontSize:15,fontWeight:"bold",padding:"4px 4px",textAlign:"center",outline:"none"}}/></div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><span style={{fontSize:9,color:"#fbbf24",fontWeight:"bold"}}>Medal</span><input type="number" min="0" max="54" value={handicapsMedal[p]??""} onChange={e=>setHandicapMedal(p,e.target.value)} placeholder="0" style={{width:48,background:"#1a1400",border:"1px solid #92400e",borderRadius:6,color:"#fbbf24",fontSize:15,fontWeight:"bold",padding:"4px 4px",textAlign:"center",outline:"none"}}/></div></div>}
               </div>
             );})}
           </div>
@@ -678,7 +682,7 @@ export default function GolfScorecard() {
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {selectedPlayers.map(p=>{const pt=playerTeam(p);return(
                   <div key={p} style={{background:pt?pt.bg:"#0f1a0f",border:`1px solid ${pt?pt.border:"#1a2e1a"}`,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
-                    <div style={{flex:1}}><span style={{fontSize:14,fontWeight:"bold"}}>{p}</span><span style={{fontSize:11,color:"#6b7280",marginLeft:8}}>HCP {handicaps[p]||0}</span>{pt&&<span style={{marginLeft:8,fontSize:10,background:pt.badgeBg,color:pt.badgeColor,borderRadius:3,padding:"1px 6px"}}>{pt.label}</span>}</div>
+                    <div style={{flex:1}}><span style={{fontSize:14,fontWeight:"bold"}}>{p}</span><span style={{fontSize:11,color:"#6b7280",marginLeft:8}}>SF {handicaps[p]||0} / M {handicapsMedal[p]||0}</span>{pt&&<span style={{marginLeft:8,fontSize:10,background:pt.badgeBg,color:pt.badgeColor,borderRadius:3,padding:"1px 6px"}}>{pt.label}</span>}</div>
                     <div style={{display:"flex",gap:5}}>{activeTeamDefs.map(t=>{const active=(teams[t.id]||[]).includes(p);return<button key={t.id} onClick={()=>assignTeam(p,t.id)} style={{width:34,height:34,borderRadius:7,border:`2px solid ${active?t.color:t.border}`,background:active?t.bg:"transparent",color:active?t.color:t.color+"60",cursor:"pointer",fontSize:12,fontWeight:"bold"}}>{t.id}</button>;})}</div>
                   </div>
                 );})}
@@ -734,7 +738,7 @@ export default function GolfScorecard() {
         <div style={{padding:"10px 14px",borderBottom:"1px solid #1a2e1a"}}>
           <div style={{fontSize:10,color:"#6b7280",marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Tu jugador</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-            {PLAYERS.map(p=>(<button key={p} onClick={()=>s_myPlayer(p)} style={{padding:"5px 10px",borderRadius:20,border:"1px solid",borderColor:myPlayer===p?"#16a34a":"#1a2e1a",background:myPlayer===p?"#052e16":"transparent",color:myPlayer===p?"#4ade80":"#94a3b8",cursor:"pointer",fontSize:12}}>{p}{handicaps[p]?` (${handicaps[p]})`:""}</button>))}
+            {PLAYERS.map(p=>(<button key={p} onClick={()=>s_myPlayer(p)} style={{padding:"5px 10px",borderRadius:20,border:"1px solid",borderColor:myPlayer===p?"#16a34a":"#1a2e1a",background:myPlayer===p?"#052e16":"transparent",color:myPlayer===p?"#4ade80":"#94a3b8",cursor:"pointer",fontSize:12}}>{p}{handicaps[p]||handicapsMedal[p]?` (${handicaps[p]||0}/${handicapsMedal[p]||0})`:""}</button>))}
           </div>
         </div>
       )}
@@ -795,7 +799,7 @@ export default function GolfScorecard() {
               {gameMode==="ambos"&&(
                 <div style={{background:"#0f1a0f",borderRadius:10,border:"1px solid #1a2e1a",overflow:"hidden"}}>
                   <div style={{padding:"8px 14px",borderBottom:"1px solid #1a2e1a",fontSize:11,color:"#6b7280",textTransform:"uppercase",letterSpacing:1}}>🎯 Stableford individual</div>
-                  {[...PLAYERS].filter(p=>holesPlayed(p)>0).sort((a,b)=>playerSF(b)-playerSF(a)).map((p,i)=>{const tm=playerTeam(p);const sf=playerSF(p);const hcp=parseInt(handicaps[p])||0;return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 14px",borderBottom:"1px solid #0f1a0f",background:i===0?"#0a1a0a":"transparent"}}><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14,width:20,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4b5563",fontSize:12}}>#{i+1}</span>}</span><div><div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontWeight:"bold",fontSize:13}}>{p}</span>{tm&&<span style={{fontSize:8,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 4px"}}>{tm.label}</span>}</div><div style={{fontSize:10,color:"#6b7280"}}>HCP {hcp} · {holesPlayed(p)}/18</div></div></div><div style={{fontSize:20,fontWeight:"bold",color:sfc(sf)}}>{sf} pts</div></div>);})}
+                  {[...PLAYERS].filter(p=>holesPlayed(p)>0).sort((a,b)=>playerSF(b)-playerSF(a)).map((p,i)=>{const tm=playerTeam(p);const sf=playerSF(p);const hcp=parseInt(handicaps[p])||0;return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 14px",borderBottom:"1px solid #0f1a0f",background:i===0?"#0a1a0a":"transparent"}}><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14,width:20,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4b5563",fontSize:12}}>#{i+1}</span>}</span><div><div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontWeight:"bold",fontSize:13}}>{p}</span>{tm&&<span style={{fontSize:8,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 4px"}}>{tm.label}</span>}</div><div style={{fontSize:10,color:"#6b7280"}}>SF {hcp} · {holesPlayed(p)}/18</div></div></div><div style={{fontSize:20,fontWeight:"bold",color:sfc(sf)}}>{sf} pts</div></div>);})}
                   {PLAYERS.filter(p=>holesPlayed(p)>0).length===0&&<div style={{padding:16,textAlign:"center",color:"#4b5563",fontSize:12}}>Sin scores todavía</div>}
                 </div>
               )}
@@ -809,7 +813,7 @@ export default function GolfScorecard() {
         <div style={{padding:16}}>
           <div style={{fontSize:12,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:1}}>🏆 Ranking — {gameMode==="medal"?"Medal":"Stableford"}</div>
           {leaderboard.length===0&&<div style={{color:"#4b5563",textAlign:"center",marginTop:40}}>Sin scores todavía</div>}
-          {leaderboard.map((p,i)=>{const hcp=parseInt(handicaps[p])||0,sf=playerSF(p),net=playerNet(p),tm=playerTeam(p);return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:i===0?"#0a2010":"#0f1a0f",border:`1px solid ${i===0?"#16a34a":"#1a2e1a"}`,borderRadius:10,padding:"12px 16px",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{fontSize:20,width:28,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4b5563",fontSize:14}}>#{i+1}</span>}</div><div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:"bold",fontSize:15}}>{p}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 5px"}}>{tm.label}</span>}{hcp>0&&<span style={{color:"#6b7280",fontSize:12}}>HCP {hcp}</span>}</div><div style={{fontSize:11,color:"#6b7280"}}>{holesPlayed(p)}/18 hoyos</div></div></div>{gameMode==="medal"?<div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:"bold",color:vpc(net)}}>{fvp(net)}</div><div style={{fontSize:10,color:"#6b7280"}}>neto</div></div>:<div style={{fontSize:24,fontWeight:"bold",color:sfc(sf)}}>{sf} pts</div>}</div>);})}
+          {leaderboard.map((p,i)=>{const hcp=parseInt(handicaps[p])||0,hcpM=parseInt(handicapsMedal[p])||0,sf=playerSF(p),net=playerNet(p),tm=playerTeam(p);return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:i===0?"#0a2010":"#0f1a0f",border:`1px solid ${i===0?"#16a34a":"#1a2e1a"}`,borderRadius:10,padding:"12px 16px",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{fontSize:20,width:28,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4b5563",fontSize:14}}>#{i+1}</span>}</div><div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:"bold",fontSize:15}}>{p}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 5px"}}>{tm.label}</span>}{(hcp>0||hcpM>0)&&<span style={{color:"#6b7280",fontSize:12}}>{gameMode==="medal"?"M":"SF"} {gameMode==="medal"?hcpM:hcp}</span>}</div><div style={{fontSize:11,color:"#6b7280"}}>{holesPlayed(p)}/18 hoyos</div></div></div>{gameMode==="medal"?<div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:"bold",color:vpc(net)}}>{fvp(net)}</div><div style={{fontSize:10,color:"#6b7280"}}>neto</div></div>:<div style={{fontSize:24,fontWeight:"bold",color:sfc(sf)}}>{sf} pts</div>}</div>);})}
           {hasTeams&&(
             <div style={{marginTop:18}}>
               <div style={{fontSize:12,color:"#6b7280",marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>🤝 Laguñada — {lagunadaVariant==="1ball"?"1 Pelota":"2 Pelotas"}</div>
@@ -824,7 +828,7 @@ export default function GolfScorecard() {
       {/* ── MI RONDA ─────────────────────────────────────────────────── */}
       {view==="myholes"&&myPlayer&&(
         <div style={{padding:16,paddingBottom:80}}>
-          <div style={{fontSize:13,color:"#6b7280",marginBottom:12}}><span style={{color:"#4ade80",fontWeight:"bold"}}>{myPlayer}</span>{handicaps[myPlayer]&&<span> · HCP {handicaps[myPlayer]}</span>}</div>
+          <div style={{fontSize:13,color:"#6b7280",marginBottom:12}}><span style={{color:"#4ade80",fontWeight:"bold"}}>{myPlayer}</span>{(handicaps[myPlayer]||handicapsMedal[myPlayer])&&<span> · SF {handicaps[myPlayer]||0} / M {handicapsMedal[myPlayer]||0}</span>}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
             {Array.from({length:HOLES},(_,i)=>i+1).map(hole=>{
               const s=scores[myPlayer]?.[hole],par=PAR[hole-1],hHcp=HCP_HOLE[hole-1],
@@ -889,7 +893,7 @@ export default function GolfScorecard() {
                   <tr key={player} style={{borderBottom:"1px solid #0f1a0f",background:pi%2===0?"#0a0f0a":"#0d140d"}}>
                     <td style={{padding:"6px 10px",fontWeight:"bold",position:"sticky",left:0,background:myPlayer===player?"#052e16":pi%2===0?"#0a0f0a":"#0d140d",borderRight:"1px solid #1a2e1a",cursor:"pointer",color:myPlayer===player?"#4ade80":"#e2e8f0"}} onClick={()=>s_myPlayer(player)}>
                       <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:14}}>{player}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 4px"}}>{tm.id}</span>}</div>
-                      {hcp>0&&<div style={{fontSize:10,color:"#6b7280",fontWeight:"normal"}}>HCP {hcp}</div>}
+                      {(hcp>0||(parseInt(handicapsMedal[player])||0)>0)&&<div style={{fontSize:9,color:"#6b7280",fontWeight:"normal"}}>SF {hcp} / M {parseInt(handicapsMedal[player])||0}</div>}
                     </td>
                     {[1,2,3,4,5,6,7,8,9].map(hole=>{
                       const s=scores[player]?.[hole],par=PAR[hole-1],pts=s?sfPoints(s,par,hcp,HCP_HOLE[hole-1]):null,isActive=activePlayer===player&&activeHole===hole;
