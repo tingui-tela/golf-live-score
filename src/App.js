@@ -811,9 +811,46 @@ export default function GolfScorecard() {
       {/* ── RANKING ──────────────────────────────────────────────────── */}
       {view==="leaderboard"&&(
         <div style={{padding:16}}>
-          <div style={{fontSize:12,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:1}}>🏆 Ranking — {gameMode==="medal"?"Medal":"Stableford"}</div>
-          {leaderboard.length===0&&<div style={{color:"#4b5563",textAlign:"center",marginTop:40}}>Sin scores todavía</div>}
-          {leaderboard.map((p,i)=>{const hcp=parseInt(handicaps[p])||0,hcpM=parseInt(handicapsMedal[p])||0,sf=playerSF(p),net=playerNet(p),tm=playerTeam(p);return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:i===0?"#0a2010":"#0f1a0f",border:`1px solid ${i===0?"#16a34a":"#1a2e1a"}`,borderRadius:10,padding:"12px 16px",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{fontSize:20,width:28,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4b5563",fontSize:14}}>#{i+1}</span>}</div><div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:"bold",fontSize:15}}>{p}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 5px"}}>{tm.label}</span>}{(hcp>0||hcpM>0)&&<span style={{color:"#6b7280",fontSize:12}}>{gameMode==="medal"?"M":"SF"} {gameMode==="medal"?hcpM:hcp}</span>}</div><div style={{fontSize:11,color:"#6b7280"}}>{holesPlayed(p)}/18 hoyos</div></div></div>{gameMode==="medal"?<div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:"bold",color:vpc(net)}}>{fvp(net)}</div><div style={{fontSize:10,color:"#6b7280"}}>neto</div></div>:<div style={{fontSize:24,fontWeight:"bold",color:sfc(sf)}}>{sf} pts</div>}</div>);})}
+          {gameMode==="ambos"?(
+            <>
+              <div style={{fontSize:12,color:"#4ade80",marginBottom:10,textTransform:"uppercase",letterSpacing:1,fontWeight:"bold"}}>🎯 Ranking Stableford</div>
+              {[...PLAYERS].filter(p=>holesPlayed(p)>0).sort((a,b)=>playerSF(b)-playerSF(a)).map((p,i)=>{
+                const hcp=parseInt(handicaps[p])||0,sf=playerSF(p),tm=playerTeam(p);
+                return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:i===0?"#0a2010":"#0f1a0f",border:`1px solid ${i===0?"#16a34a":"#1a2e1a"}`,borderRadius:10,padding:"10px 14px",marginBottom:7}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{fontSize:20,width:26,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4b5563",fontSize:14}}>#{i+1}</span>}</div>
+                    <div>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:"bold",fontSize:15}}>{p}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 5px"}}>{tm.label}</span>}<span style={{color:"#6b7280",fontSize:11}}>SF {hcp}</span></div>
+                      <div style={{fontSize:11,color:"#6b7280"}}>{holesPlayed(p)}/18 hoyos</div>
+                    </div>
+                  </div>
+                  <div style={{fontSize:24,fontWeight:"bold",color:sfc(sf)}}>{sf} pts</div>
+                </div>);
+              })}
+              {[...PLAYERS].filter(p=>holesPlayed(p)>0).length===0&&<div style={{color:"#4b5563",textAlign:"center",marginBottom:16}}>Sin scores todavía</div>}
+              <div style={{fontSize:12,color:"#fbbf24",margin:"18px 0 10px",textTransform:"uppercase",letterSpacing:1,fontWeight:"bold"}}>🏅 Ranking Medal</div>
+              {[...PLAYERS].filter(p=>holesPlayed(p)>0).sort((a,b)=>playerNet(a)-playerNet(b)).map((p,i)=>{
+                const hcpM=parseInt(handicapsMedal[p])||0,net=playerNet(p),tm=playerTeam(p);
+                return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:i===0?"#0a1400":"#0f1a0f",border:`1px solid ${i===0?"#92400e":"#1a2e1a"}`,borderRadius:10,padding:"10px 14px",marginBottom:7}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{fontSize:20,width:26,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4b5563",fontSize:14}}>#{i+1}</span>}</div>
+                    <div>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:"bold",fontSize:15}}>{p}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 5px"}}>{tm.label}</span>}<span style={{color:"#6b7280",fontSize:11}}>M {hcpM}</span></div>
+                      <div style={{fontSize:11,color:"#6b7280"}}>Bruto: {playerTotal(p)} · {holesPlayed(p)}/18</div>
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:"bold",color:vpc(net)}}>{fvp(net)}</div><div style={{fontSize:10,color:"#6b7280"}}>neto medal</div></div>
+                </div>);
+              })}
+              {[...PLAYERS].filter(p=>holesPlayed(p)>0).length===0&&<div style={{color:"#4b5563",textAlign:"center"}}>Sin scores todavía</div>}
+            </>
+          ):(
+            <>
+              <div style={{fontSize:12,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:1}}>🏆 Ranking — {gameMode==="medal"?"Medal":"Stableford"}</div>
+              {leaderboard.length===0&&<div style={{color:"#4b5563",textAlign:"center",marginTop:40}}>Sin scores todavía</div>}
+              {leaderboard.map((p,i)=>{const hcp=parseInt(handicaps[p])||0,hcpM=parseInt(handicapsMedal[p])||0,sf=playerSF(p),net=playerNet(p),tm=playerTeam(p);return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:i===0?"#0a2010":"#0f1a0f",border:`1px solid ${i===0?"#16a34a":"#1a2e1a"}`,borderRadius:10,padding:"12px 16px",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{fontSize:20,width:28,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4b5563",fontSize:14}}>#{i+1}</span>}</div><div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:"bold",fontSize:15}}>{p}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 5px"}}>{tm.label}</span>}{(hcp>0||hcpM>0)&&<span style={{color:"#6b7280",fontSize:12}}>{gameMode==="medal"?"M":"SF"} {gameMode==="medal"?hcpM:hcp}</span>}</div><div style={{fontSize:11,color:"#6b7280"}}>{holesPlayed(p)}/18 hoyos</div></div></div>{gameMode==="medal"?<div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:"bold",color:vpc(net)}}>{fvp(net)}</div><div style={{fontSize:10,color:"#6b7280"}}>neto</div></div>:<div style={{fontSize:24,fontWeight:"bold",color:sfc(sf)}}>{sf} pts</div>}</div>);})}
+            </>
+          )}
           {hasTeams&&(
             <div style={{marginTop:18}}>
               <div style={{fontSize:12,color:"#6b7280",marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>🤝 Laguñada — {lagunadaVariant==="1ball"?"1 Pelota":"2 Pelotas"}</div>
@@ -874,47 +911,78 @@ export default function GolfScorecard() {
       {/* ── GRID ─────────────────────────────────────────────────────── */}
       {view==="grid"&&(
         <div style={{overflowX:"auto",paddingBottom:80}}>
-          <table style={{borderCollapse:"collapse",minWidth:"100%",fontSize:13}}>
+          <table style={{borderCollapse:"collapse",minWidth:"100%",fontSize:14}}>
             <thead>
               <tr style={{background:"#0a1a0a"}}>
-                <th style={{padding:"8px 10px",textAlign:"left",color:"#6b7280",position:"sticky",left:0,background:"#0a1a0a",borderRight:"1px solid #1a2e1a",minWidth:95}}>Jugador</th>
-                {Array.from({length:9},(_,i)=>i+1).map(h=>(<th key={h} style={{padding:"5px 3px",textAlign:"center",color:"#6b7280",minWidth:36}}><div style={{fontSize:12}}>H{h}</div><div style={{fontSize:10,color:"#374151"}}>P{PAR[h-1]}</div></th>))}
-                <th style={{padding:"4px",textAlign:"center",color:"#86efac",minWidth:38,background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534"}}><div style={{fontSize:11,fontWeight:"bold"}}>OUT</div><div style={{fontSize:10,color:"#374151"}}>{PAR.slice(0,9).reduce((a,b)=>a+b,0)}</div></th>
-                {Array.from({length:9},(_,i)=>i+10).map(h=>(<th key={h} style={{padding:"5px 3px",textAlign:"center",color:"#6b7280",minWidth:36}}><div style={{fontSize:12}}>H{h}</div><div style={{fontSize:10,color:"#374151"}}>P{PAR[h-1]}</div></th>))}
-                <th style={{padding:"4px",textAlign:"center",color:"#86efac",minWidth:38,background:"#071a07",borderLeft:"2px solid #166634",borderRight:"2px solid #166634"}}><div style={{fontSize:11,fontWeight:"bold"}}>IN</div><div style={{fontSize:10,color:"#374151"}}>{PAR.slice(9).reduce((a,b)=>a+b,0)}</div></th>
-                <th style={{padding:"8px 6px",textAlign:"center",color:"#4ade80",minWidth:42}}>{gameMode==="medal"?"TOT":"PTS"}</th>
-                {gameMode==="medal"&&<th style={{padding:"8px 6px",textAlign:"center",color:"#FFD700",minWidth:42}}>NETO</th>}
+                <th style={{padding:"8px 10px",textAlign:"left",color:"#6b7280",position:"sticky",left:0,background:"#0a1a0a",borderRight:"1px solid #1a2e1a",minWidth:100}}>Jugador</th>
+                {Array.from({length:9},(_,i)=>i+1).map(h=>(<th key={h} style={{padding:"5px 3px",textAlign:"center",color:"#6b7280",minWidth:38}}><div style={{fontSize:13}}>H{h}</div><div style={{fontSize:10,color:"#374151"}}>P{PAR[h-1]}</div></th>))}
+                <th style={{padding:"4px",textAlign:"center",color:"#86efac",minWidth:40,background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534"}}><div style={{fontSize:12,fontWeight:"bold"}}>OUT</div><div style={{fontSize:10,color:"#374151"}}>{PAR.slice(0,9).reduce((a,b)=>a+b,0)}</div></th>
+                {Array.from({length:9},(_,i)=>i+10).map(h=>(<th key={h} style={{padding:"5px 3px",textAlign:"center",color:"#6b7280",minWidth:38}}><div style={{fontSize:13}}>H{h}</div><div style={{fontSize:10,color:"#374151"}}>P{PAR[h-1]}</div></th>))}
+                <th style={{padding:"4px",textAlign:"center",color:"#86efac",minWidth:40,background:"#071a07",borderLeft:"2px solid #166634",borderRight:"2px solid #166634"}}><div style={{fontSize:12,fontWeight:"bold"}}>IN</div><div style={{fontSize:10,color:"#374151"}}>{PAR.slice(9).reduce((a,b)=>a+b,0)}</div></th>
+                {gameMode==="ambos"?<><th style={{padding:"6px 4px",textAlign:"center",color:"#4ade80",minWidth:44,fontSize:11}}>PTS<br/>SF</th><th style={{padding:"6px 4px",textAlign:"center",color:"#fbbf24",minWidth:44,fontSize:11}}>NETO<br/>M</th></>:<th style={{padding:"8px 6px",textAlign:"center",color:"#4ade80",minWidth:44}}>{gameMode==="medal"?"TOT":"PTS"}</th>}
+                {gameMode==="medal"&&<th style={{padding:"8px 6px",textAlign:"center",color:"#FFD700",minWidth:44}}>NETO</th>}
               </tr>
             </thead>
             <tbody>
               {PLAYERS.map((player,pi)=>{
                 const hcp=parseInt(handicaps[player])||0,tot=playerTotal(player),sf=playerSF(player),net=playerNet(player),tm=playerTeam(player);
+                const rowBg=pi%2===0?"#0a0f0a":"#0d140d";
+                const stickyBg=myPlayer===player?"#052e16":rowBg;
+                // Celda nombre — compartida entre filas en ambos
+                const nameTd=(<td rowSpan={gameMode==="ambos"?2:1} style={{padding:"6px 10px",fontWeight:"bold",position:"sticky",left:0,background:stickyBg,borderRight:"1px solid #1a2e1a",cursor:"pointer",color:myPlayer===player?"#4ade80":"#e2e8f0",verticalAlign:"middle"}} onClick={()=>s_myPlayer(player)}>
+                  <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:14}}>{player}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 4px"}}>{tm.id}</span>}</div>
+                  {(hcp>0||(parseInt(handicapsMedal[player])||0)>0)&&<div style={{fontSize:9,color:"#6b7280",fontWeight:"normal"}}>SF {hcp} / M {parseInt(handicapsMedal[player])||0}</div>}
+                </td>);
+                // Celdas de hoyo — fila de scores
+                const scoreCells=(holes)=>holes.map(hole=>{
+                  const s=scores[player]?.[hole],par=PAR[hole-1],pts=s?sfPoints(s,par,hcp,HCP_HOLE[hole-1]):null,isActive=activePlayer===player&&activeHole===hole;
+                  const ap=tm?activePlayers(rotation,tm.id,hole):[player];const isResting=tm&&!ap.includes(player);
+                  return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"3px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":"transparent",border:isActive?"1px solid #4ade80":"1px solid transparent"}}>
+                    <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:16}}>{s||"·"}</div>
+                    {gameMode!=="ambos"&&isSF&&s&&<div style={{fontSize:10,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
+                    {isResting&&s&&<div style={{fontSize:8,color:"#4b5563",lineHeight:1}}>—lag</div>}
+                  </td>);
+                });
+                // Celdas de hoyo — fila de puntos SF (solo en ambos)
+                const sfCells=(holes)=>holes.map(hole=>{
+                  const s=scores[player]?.[hole],par=PAR[hole-1],pts=s?sfPoints(s,par,hcp,HCP_HOLE[hole-1]):null;
+                  return(<td key={"sf"+hole} style={{padding:"2px 1px",textAlign:"center",background:"#060f06",borderTop:"1px solid #0a1a0a"}}>
+                    {pts!==null?<div style={{fontSize:11,fontWeight:"bold",color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>:<div style={{fontSize:11,color:"#1a2e1a"}}>·</div>}
+                  </td>);
+                });
+                const outScore=[1,2,3,4,5,6,7,8,9].reduce((a,h)=>a+(scores[player]?.[h]||0),0);
+                const outSF=[1,2,3,4,5,6,7,8,9].reduce((a,h)=>{const s=scores[player]?.[h];return a+(s?sfPoints(s,PAR[h-1],hcp,HCP_HOLE[h-1])||0:0);},0);
+                const outPlayed=[1,2,3,4,5,6,7,8,9].filter(h=>scores[player]?.[h]).length;
+                const inScore=[10,11,12,13,14,15,16,17,18].reduce((a,h)=>a+(scores[player]?.[h]||0),0);
+                const inSF=[10,11,12,13,14,15,16,17,18].reduce((a,h)=>{const s=scores[player]?.[h];return a+(s?sfPoints(s,PAR[h-1],hcp,HCP_HOLE[h-1])||0:0);},0);
+                const inPlayed=[10,11,12,13,14,15,16,17,18].filter(h=>scores[player]?.[h]).length;
+                if(gameMode==="ambos"){
+                  return(<>
+                    <tr key={player+"_score"} style={{background:rowBg}}>
+                      {nameTd}
+                      {scoreCells([1,2,3,4,5,6,7,8,9])}
+                      <td style={{textAlign:"center",fontWeight:"bold",padding:"3px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#e2e8f0",fontSize:13}}>{outPlayed>0?outScore:"—"}</td>
+                      {scoreCells([10,11,12,13,14,15,16,17,18])}
+                      <td style={{textAlign:"center",fontWeight:"bold",padding:"3px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#e2e8f0",fontSize:13}}>{inPlayed>0?inScore:"—"}</td>
+                      <td style={{textAlign:"center",fontWeight:"bold",padding:"3px",fontSize:14,color:sfc(sf)}}>{holesPlayed(player)>0?sf:"—"}</td>
+                      <td style={{textAlign:"center",fontWeight:"bold",padding:"3px",fontSize:14,color:holesPlayed(player)>0?vpc(net):"#374151"}}>{holesPlayed(player)>0?fvp(net):"—"}</td>
+                    </tr>
+                    <tr key={player+"_sf"} style={{borderBottom:"2px solid #1a2e1a",background:"#060f06"}}>
+                      {sfCells([1,2,3,4,5,6,7,8,9])}
+                      <td style={{textAlign:"center",fontWeight:"bold",padding:"2px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#4ade80",fontSize:12}}>{outPlayed>0?`${outSF}p`:"—"}</td>
+                      {sfCells([10,11,12,13,14,15,16,17,18])}
+                      <td style={{textAlign:"center",fontWeight:"bold",padding:"2px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#4ade80",fontSize:12}}>{inPlayed>0?`${inSF}p`:"—"}</td>
+                      <td colSpan={2} style={{textAlign:"center",fontSize:11,color:"#4ade80",padding:"2px",background:"#060f06"}}>🎯 {holesPlayed(player)>0?`${sf} pts SF`:"—"}</td>
+                    </tr>
+                  </>);
+                }
                 return(
-                  <tr key={player} style={{borderBottom:"1px solid #0f1a0f",background:pi%2===0?"#0a0f0a":"#0d140d"}}>
-                    <td style={{padding:"6px 10px",fontWeight:"bold",position:"sticky",left:0,background:myPlayer===player?"#052e16":pi%2===0?"#0a0f0a":"#0d140d",borderRight:"1px solid #1a2e1a",cursor:"pointer",color:myPlayer===player?"#4ade80":"#e2e8f0"}} onClick={()=>s_myPlayer(player)}>
-                      <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:14}}>{player}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 4px"}}>{tm.id}</span>}</div>
-                      {(hcp>0||(parseInt(handicapsMedal[player])||0)>0)&&<div style={{fontSize:9,color:"#6b7280",fontWeight:"normal"}}>SF {hcp} / M {parseInt(handicapsMedal[player])||0}</div>}
-                    </td>
-                    {[1,2,3,4,5,6,7,8,9].map(hole=>{
-                      const s=scores[player]?.[hole],par=PAR[hole-1],pts=s?sfPoints(s,par,hcp,HCP_HOLE[hole-1]):null,isActive=activePlayer===player&&activeHole===hole;
-                      const ap=tm?activePlayers(rotation,tm.id,hole):[player];const isResting=tm&&!ap.includes(player);
-                      return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"3px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":"transparent",border:isActive?"1px solid #4ade80":"1px solid transparent"}}>
-                        <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:15}}>{s||"·"}</div>
-                        {isSF&&s&&<div style={{fontSize:10,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
-                        {isResting&&s&&<div style={{fontSize:8,color:"#4b5563",lineHeight:1}}>—lag</div>}
-                      </td>);
-                    })}
-                    {(()=>{const os=[1,2,3,4,5,6,7,8,9].reduce((a,h)=>a+(scores[player]?.[h]||0),0);const osf=[1,2,3,4,5,6,7,8,9].reduce((a,h)=>{const s=scores[player]?.[h];return a+(s?sfPoints(s,PAR[h-1],hcp,HCP_HOLE[h-1])||0:0);},0);const op=[1,2,3,4,5,6,7,8,9].filter(h=>scores[player]?.[h]).length;return<td key="out" style={{textAlign:"center",fontWeight:"bold",padding:"4px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#86efac",fontSize:13}}>{op>0?(isSF?`${osf}p`:os):"—"}</td>;})()}
-                    {[10,11,12,13,14,15,16,17,18].map(hole=>{
-                      const s=scores[player]?.[hole],par=PAR[hole-1],pts=s?sfPoints(s,par,hcp,HCP_HOLE[hole-1]):null,isActive=activePlayer===player&&activeHole===hole;
-                      const ap=tm?activePlayers(rotation,tm.id,hole):[player];const isResting=tm&&!ap.includes(player);
-                      return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"3px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":"transparent",border:isActive?"1px solid #4ade80":"1px solid transparent"}}>
-                        <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:15}}>{s||"·"}</div>
-                        {isSF&&s&&<div style={{fontSize:10,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
-                        {isResting&&s&&<div style={{fontSize:8,color:"#4b5563",lineHeight:1}}>—lag</div>}
-                      </td>);
-                    })}
-                    {(()=>{const is_=[10,11,12,13,14,15,16,17,18].reduce((a,h)=>a+(scores[player]?.[h]||0),0);const isf=[10,11,12,13,14,15,16,17,18].reduce((a,h)=>{const s=scores[player]?.[h];return a+(s?sfPoints(s,PAR[h-1],hcp,HCP_HOLE[h-1])||0:0);},0);const ip=[10,11,12,13,14,15,16,17,18].filter(h=>scores[player]?.[h]).length;return<td key="in" style={{textAlign:"center",fontWeight:"bold",padding:"4px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#86efac",fontSize:13}}>{ip>0?(isSF?`${isf}p`:is_):"—"}</td>;})()}
+                  <tr key={player} style={{borderBottom:"1px solid #0f1a0f",background:rowBg}}>
+                    {nameTd}
+                    {scoreCells([1,2,3,4,5,6,7,8,9])}
+                    <td style={{textAlign:"center",fontWeight:"bold",padding:"4px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#86efac",fontSize:13}}>{outPlayed>0?(isSF?`${outSF}p`:outScore):"—"}</td>
+                    {scoreCells([10,11,12,13,14,15,16,17,18])}
+                    <td style={{textAlign:"center",fontWeight:"bold",padding:"4px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#86efac",fontSize:13}}>{inPlayed>0?(isSF?`${inSF}p`:inScore):"—"}</td>
                     <td style={{textAlign:"center",fontWeight:"bold",padding:"4px",fontSize:14,color:isSF?sfc(sf):"#e2e8f0"}}>{holesPlayed(player)>0?(isSF?sf:tot):"—"}</td>
                     {gameMode==="medal"&&<td style={{textAlign:"center",fontWeight:"bold",padding:"4px",fontSize:14,color:holesPlayed(player)>0?vpc(net):"#374151"}}>{holesPlayed(player)>0?fvp(net):"—"}</td>}
                   </tr>
