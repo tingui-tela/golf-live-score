@@ -286,6 +286,7 @@ export default function GolfScorecard() {
     const data = {selectedPlayers:sel,handicaps:hcaps,handicapsMedal:hcapsM,playerList:plist,gameMode:mode,lagunadaVariant:lv,numTeams:nt,teams:tm,activeCourseId:cid};
     try { localStorage.setItem(SETUP_KEY,JSON.stringify(data)); } catch(e) {}
     // Sync to GAS (no await para no bloquear UI)
+    lastWriteRef.current = Date.now();
     gasWrite(SETUP_KEY, JSON.stringify(data));
   };
 
@@ -299,6 +300,7 @@ export default function GolfScorecard() {
   const saveScores = async (ns) => {
     const val = JSON.stringify(ns);
     try { localStorage.setItem(SCORES_KEY,val); } catch(e) {}
+    lastWriteRef.current = Date.now();
     s_syncing(true);
     await gasWrite(SCORES_KEY, val);
     s_syncing(false);
@@ -367,14 +369,18 @@ export default function GolfScorecard() {
     s_loading(false);
   },[]);
 
+  // ── Ref para bloquear el poll 15s después de un write local ────────
+  const lastWriteRef = useRef(0);
+
   // ── Poll Google Sheets every 8 seconds ────────────────────────────
   useEffect(()=>{
     loadData();
     const iv = setInterval(async()=>{
+      // Si hace menos de 15s que este dispositivo escribió, no pisamos
+      if (Date.now() - lastWriteRef.current < 15000) return;
       try {
         const all = await gasRead();
         if (all[SCORES_KEY]) { try { s_scores(JSON.parse(all[SCORES_KEY])); } catch {} }
-        // También sync setup y bonus en el poll
         if (all[SETUP_KEY]) {
           try {
             const d=JSON.parse(all[SETUP_KEY]);
@@ -929,17 +935,17 @@ export default function GolfScorecard() {
                 const rowBg=pi%2===0?"#0a0f0a":"#0d140d";
                 const stickyBg=myPlayer===player?"#052e16":rowBg;
                 // Celda nombre — compartida entre filas en ambos
-                const nameTd=(<td rowSpan={gameMode==="ambos"?2:1} style={{padding:"6px 10px",fontWeight:"bold",position:"sticky",left:0,background:stickyBg,borderRight:"1px solid #1a2e1a",cursor:"pointer",color:myPlayer===player?"#4ade80":"#e2e8f0",verticalAlign:"middle"}} onClick={()=>s_myPlayer(player)}>
-                  <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:14}}>{player}</span>{tm&&<span style={{fontSize:9,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 4px"}}>{tm.id}</span>}</div>
-                  {(hcp>0||(parseInt(handicapsMedal[player])||0)>0)&&<div style={{fontSize:9,color:"#6b7280",fontWeight:"normal"}}>SF {hcp} / M {parseInt(handicapsMedal[player])||0}</div>}
+                const nameTd=(<td rowSpan={gameMode==="ambos"?2:1} style={{padding:"8px 10px",fontWeight:"bold",position:"sticky",left:0,background:stickyBg,borderRight:"1px solid #1a2e1a",cursor:"pointer",color:myPlayer===player?"#4ade80":"#e2e8f0",verticalAlign:"middle"}} onClick={()=>s_myPlayer(player)}>
+                  <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:16}}>{player}</span>{tm&&<span style={{fontSize:10,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"2px 5px"}}>{tm.id}</span>}</div>
+                  {(hcp>0||(parseInt(handicapsMedal[player])||0)>0)&&<div style={{fontSize:11,color:"#6b7280",fontWeight:"normal"}}>SF {hcp} / M {parseInt(handicapsMedal[player])||0}</div>}
                 </td>);
                 // Celdas de hoyo — fila de scores
                 const scoreCells=(holes)=>holes.map(hole=>{
                   const s=scores[player]?.[hole],par=PAR[hole-1],pts=s?sfPoints(s,par,hcp,HCP_HOLE[hole-1]):null,isActive=activePlayer===player&&activeHole===hole;
                   const ap=tm?activePlayers(rotation,tm.id,hole):[player];const isResting=tm&&!ap.includes(player);
                   return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"3px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":"transparent",border:isActive?"1px solid #4ade80":"1px solid transparent"}}>
-                    <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:16}}>{s||"·"}</div>
-                    {gameMode!=="ambos"&&isSF&&s&&<div style={{fontSize:10,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
+                    <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:18}}>{s||"·"}</div>
+                    {gameMode!=="ambos"&&isSF&&s&&<div style={{fontSize:11,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
                     {isResting&&s&&<div style={{fontSize:8,color:"#4b5563",lineHeight:1}}>—lag</div>}
                   </td>);
                 });
@@ -961,11 +967,11 @@ export default function GolfScorecard() {
                     <tr key={player+"_score"} style={{background:rowBg}}>
                       {nameTd}
                       {scoreCells([1,2,3,4,5,6,7,8,9])}
-                      <td style={{textAlign:"center",fontWeight:"bold",padding:"3px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#e2e8f0",fontSize:13}}>{outPlayed>0?outScore:"—"}</td>
+                      <td style={{textAlign:"center",fontWeight:"bold",padding:"3px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#e2e8f0",fontSize:15}}>{outPlayed>0?outScore:"—"}</td>
                       {scoreCells([10,11,12,13,14,15,16,17,18])}
-                      <td style={{textAlign:"center",fontWeight:"bold",padding:"3px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#e2e8f0",fontSize:13}}>{inPlayed>0?inScore:"—"}</td>
+                      <td style={{textAlign:"center",fontWeight:"bold",padding:"3px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#e2e8f0",fontSize:15}}>{inPlayed>0?inScore:"—"}</td>
                       <td style={{textAlign:"center",fontWeight:"bold",padding:"3px",fontSize:14,color:sfc(sf)}}>{holesPlayed(player)>0?sf:"—"}</td>
-                      <td style={{textAlign:"center",fontWeight:"bold",padding:"3px",fontSize:14,color:holesPlayed(player)>0?vpc(net):"#374151"}}>{holesPlayed(player)>0?fvp(net):"—"}</td>
+                      <td style={{textAlign:"center",fontWeight:"bold",padding:"3px",fontSize:16,color:holesPlayed(player)>0?vpc(net):"#374151"}}>{holesPlayed(player)>0?fvp(net):"—"}</td>
                     </tr>
                     <tr key={player+"_sf"} style={{borderBottom:"2px solid #1a2e1a",background:"#060f06"}}>
                       {sfCells([1,2,3,4,5,6,7,8,9])}
@@ -980,11 +986,11 @@ export default function GolfScorecard() {
                   <tr key={player} style={{borderBottom:"1px solid #0f1a0f",background:rowBg}}>
                     {nameTd}
                     {scoreCells([1,2,3,4,5,6,7,8,9])}
-                    <td style={{textAlign:"center",fontWeight:"bold",padding:"4px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#86efac",fontSize:13}}>{outPlayed>0?(isSF?`${outSF}p`:outScore):"—"}</td>
+                    <td style={{textAlign:"center",fontWeight:"bold",padding:"4px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#86efac",fontSize:15}}>{outPlayed>0?(isSF?`${outSF}p`:outScore):"—"}</td>
                     {scoreCells([10,11,12,13,14,15,16,17,18])}
-                    <td style={{textAlign:"center",fontWeight:"bold",padding:"4px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#86efac",fontSize:13}}>{inPlayed>0?(isSF?`${inSF}p`:inScore):"—"}</td>
-                    <td style={{textAlign:"center",fontWeight:"bold",padding:"4px",fontSize:14,color:isSF?sfc(sf):"#e2e8f0"}}>{holesPlayed(player)>0?(isSF?sf:tot):"—"}</td>
-                    {gameMode==="medal"&&<td style={{textAlign:"center",fontWeight:"bold",padding:"4px",fontSize:14,color:holesPlayed(player)>0?vpc(net):"#374151"}}>{holesPlayed(player)>0?fvp(net):"—"}</td>}
+                    <td style={{textAlign:"center",fontWeight:"bold",padding:"4px",background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534",color:"#86efac",fontSize:15}}>{inPlayed>0?(isSF?`${inSF}p`:inScore):"—"}</td>
+                    <td style={{textAlign:"center",fontWeight:"bold",padding:"4px",fontSize:16,color:isSF?sfc(sf):"#e2e8f0"}}>{holesPlayed(player)>0?(isSF?sf:tot):"—"}</td>
+                    {gameMode==="medal"&&<td style={{textAlign:"center",fontWeight:"bold",padding:"4px",fontSize:16,color:holesPlayed(player)>0?vpc(net):"#374151"}}>{holesPlayed(player)>0?fvp(net):"—"}</td>}
                   </tr>
                 );
               })}
