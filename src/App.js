@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 const ALL_PLAYERS = ["Metra","Garza","Herny","Tingui","Gouk","Grassu","Nano","Marto"];
 const HOLES = 18;
-const SCORES_KEY  = "golf_scores_v3";
-const SETUP_KEY   = "golf_setup_v13";
-const COURSES_KEY = "golf_courses_v2";
-const BONUS_KEY   = "golf_bonus_v1";
+// ─── Grupo desde URL (?grupo=1 o ?grupo=2) ──────────────────────────
+const _grupo = new URLSearchParams(window.location.search).get("grupo") || "1";
+const SCORES_KEY  = `golf_scores_v3_g${_grupo}`;
+const SETUP_KEY   = `golf_setup_v13_g${_grupo}`;
+const COURSES_KEY = `golf_courses_v2_g${_grupo}`;
+const BONUS_KEY   = `golf_bonus_v1_g${_grupo}`;
 
 // ─── Google Sheets sync ──────────────────────────────────────────────
 const GAS_URL = "https://script.google.com/macros/s/AKfycby4b0aSHVbXSs8S5SG_AP6KQd4idqTXUZKrjeMJTuYhdtnA9dlkBeEqY9pFXcNDkxyM/exec";
@@ -640,7 +642,7 @@ export default function GolfScorecard() {
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
             <div style={{fontSize:22,fontWeight:"bold",color:"#4ade80"}}>⛳ Golf Live Score</div>
-            <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Configuración · Par {TOTAL_PAR}</div>
+            <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Configuración · Par {TOTAL_PAR} · <span style={{color:_grupo==="2"?"#f87171":"#60a5fa",fontWeight:"bold"}}>{_grupo==="2"?"Grupo Lomas":"Grupo San Andrés"}</span></div>
           </div>
           {Object.keys(scores).length>0&&(
             <button onClick={()=>s_showResetConfirm(true)} style={{padding:"8px 14px",borderRadius:8,border:"2px solid #dc2626",background:"transparent",color:"#f87171",cursor:"pointer",fontSize:12,fontWeight:"bold"}}>🔄 Nueva ronda</button>
@@ -770,7 +772,7 @@ export default function GolfScorecard() {
       <div style={{background:"linear-gradient(135deg,#052e16,#0a2010)",borderBottom:"1px solid #166534",padding:"14px 16px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
           <div>
-            <div style={{fontSize:20,fontWeight:"bold",color:"#4ade80"}}>⛳ {activeCourse.name}</div>
+            <div style={{fontSize:20,fontWeight:"bold",color:"#4ade80"}}>⛳ {activeCourse.name} <span style={{fontSize:12,color:_grupo==="2"?"#f87171":"#60a5fa",fontWeight:"normal"}}>· {_grupo==="2"?"Lomas":"San Andrés"}</span></div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginTop:2}}>
               <span style={{fontSize:11,color:"#6b7280"}}>{gameMode==="medal"?"🏅 Medal":gameMode==="ambos"?"🎯🤝 Stableford+Laguñada":"🎯 Stableford"} · Par {TOTAL_PAR}</span>
               <div style={{display:"flex",alignItems:"center",gap:4}}>
