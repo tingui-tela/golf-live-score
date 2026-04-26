@@ -258,7 +258,7 @@ export default function GolfScorecard() {
   const [selectedPlayers,s_sel]   = useState([]);
   const [handicaps,s_hcaps]       = useState({});
   const [handicapsMedal,s_hcapsM]  = useState({});
-  const [playerList,s_plist]      = useState(ALL_PLAYERS);
+  const [playerList,s_plist]      = useState(_grupo==="1"?ALL_PLAYERS:[]);
   const [newPlayerName,s_npn]     = useState("");
   const [showAdd,s_showAdd]       = useState(false);
   const [gameMode,s_mode]         = useState("stableford");
