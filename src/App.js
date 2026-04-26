@@ -58,6 +58,8 @@ const TEAM_DEFS = [
   { id:"B", label:"Equipo B", color:"#f87171", bg:"#1a0606", border:"#5f1e1e", badgeBg:"#7f1d1d", badgeColor:"#fca5a5" },
   { id:"C", label:"Equipo C", color:"#4ade80", bg:"#061a0a", border:"#1a5f1e", badgeBg:"#14532d", badgeColor:"#86efac" },
   { id:"D", label:"Equipo D", color:"#fbbf24", bg:"#1a1406", border:"#5f4a1e", badgeBg:"#78350f", badgeColor:"#fde68a" },
+  { id:"E", label:"Equipo E", color:"#e879f9", bg:"#1a0618", border:"#5f1e5f", badgeBg:"#701a75", badgeColor:"#f0abfc" },
+  { id:"F", label:"Equipo F", color:"#38bdf8", bg:"#061018", border:"#1e4a5f", badgeBg:"#0c4a6e", badgeColor:"#7dd3fc" },
 ];
 const makeEmptyTeams = (n) => Object.fromEntries(TEAM_DEFS.slice(0,n).map(t=>[t.id,[]]));
 
@@ -731,7 +733,7 @@ export default function GolfScorecard() {
           </div>
           <div style={{marginBottom:14}}>
             <div style={{fontSize:11,color:"#6b7280",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Cantidad de equipos</div>
-            <div style={{display:"flex",gap:8}}>{[2,3,4].map(n=>(<button key={n} onClick={()=>changeNumTeams(n)} style={{flex:1,padding:"14px 0",borderRadius:8,border:`2px solid ${numTeams===n?"#2563eb":"#1a2e1a"}`,background:numTeams===n?"#0a1a3a":"transparent",color:numTeams===n?"#60a5fa":"#6b7280",cursor:"pointer",fontSize:22,fontWeight:"bold"}}>{n}</button>))}</div>
+            <div style={{display:"flex",gap:8}}>{[2,3,4,5,6].map(n=>(<button key={n} onClick={()=>changeNumTeams(n)} style={{flex:1,padding:"10px 0",borderRadius:8,border:`2px solid ${numTeams===n?"#2563eb":"#1a2e1a"}`,background:numTeams===n?"#0a1a3a":"transparent",color:numTeams===n?"#60a5fa":"#6b7280",cursor:"pointer",fontSize:18,fontWeight:"bold"}}>{n}</button>))}</div>
           </div>
           {selectedPlayers.length===0
             ?<div style={{color:"#4b5563",textAlign:"center",padding:20,fontSize:13}}>Primero seleccioná jugadores en la pestaña Jugadores</div>
@@ -813,7 +815,7 @@ export default function GolfScorecard() {
             ?<div style={{color:"#4b5563",textAlign:"center",marginTop:40,fontSize:14}}><div style={{fontSize:30,marginBottom:10}}>🤝</div>Asigná jugadores a equipos en ⚙️</div>
             :<>
               {/* Tarjetas de equipo con BONUS — orden fijo A/B/C/D para que el input no salte */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:numTeams<=4?"1fr 1fr":"1fr 1fr 1fr",gap:10,marginBottom:14}}>
                 {activeTeamDefs.map((t)=>{
                   const st=teamScores[t.id];
                   const fd=teamFinalDiff(t.id);
@@ -912,7 +914,7 @@ export default function GolfScorecard() {
           {hasTeams&&(
             <div style={{marginTop:18}}>
               <div style={{fontSize:12,color:"#6b7280",marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>🤝 Laguñada — {lagunadaVariant==="1ball"?"1 Pelota":"2 Pelotas"}</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div style={{display:"grid",gridTemplateColumns:numTeams<=4?"1fr 1fr":"1fr 1fr 1fr",gap:10}}>
                 {rankedTeams.map((t,i)=>{const st=teamScores[t.id];const fd=teamFinalDiff(t.id);const bonus=parseInt(teamBonus[t.id])||0;const players=(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));const isLead=i===0&&st.played>0&&fd<teamFinalDiff(rankedTeams[1]?.id);return(<div key={t.id} style={{background:t.bg,border:`2px solid ${isLead?"#FFD700":t.border}`,borderRadius:12,padding:"12px 10px",textAlign:"center",position:"relative"}}>{isLead&&st.played>0&&<div style={{position:"absolute",top:-8,left:"50%",transform:"translateX(-50%)",fontSize:14}}>🏆</div>}<div style={{fontSize:10,color:t.color,fontWeight:"bold",marginBottom:2}}>{t.label}</div><div style={{fontSize:9,color:"#6b7280",marginBottom:4}}>{players.join(", ")}</div><div style={{fontSize:26,fontWeight:"bold",color:fd<0?"#FFD700":fd===0?"#4ade80":"#f87171"}}>{st.played>0?fvp(fd):"—"}</div>{bonus>0&&<div style={{fontSize:9,color:"#fbbf24"}}>+{bonus} bonus</div>}<div style={{fontSize:9,color:"#6b7280"}}>{st.played}/18</div></div>);})}
               </div>
             </div>
