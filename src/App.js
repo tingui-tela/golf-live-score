@@ -467,10 +467,60 @@ export default function GolfScorecard() {
   const playerVsPar=(p)=>{const s=scores[p]||{};let t=0,pp=0;for(let h=1;h<=HOLES;h++)if(s[h]){t+=s[h];pp+=PAR[h-1];}return t-pp;};
   const playerNet=(p)=>playerVsPar(p)-(parseInt(handicapsMedal[p])||0);
 
+  // ── Desempate Stableford: últimos 9, 6, 3, 1 hoyo ─────────────────
+  const playerSFLast=(p,n)=>{
+    const hcp=parseInt(handicaps[p])||0;
+    const s=scores[p]||{};
+    let pts=0;
+    for(let h=HOLES-n+1;h<=HOLES;h++) if(s[h]) pts+=sfPoints(s[h],PAR[h-1],hcp,HCP_HOLE[h-1])||0;
+    return pts;
+  };
+  const sfTiebreak=(a,b)=>{
+    // Últimos 9
+    const d9=playerSFLast(b,9)-playerSFLast(a,9); if(d9!==0) return d9;
+    // Últimos 6
+    const d6=playerSFLast(b,6)-playerSFLast(a,6); if(d6!==0) return d6;
+    // Últimos 3
+    const d3=playerSFLast(b,3)-playerSFLast(a,3); if(d3!==0) return d3;
+    // Último hoyo
+    return playerSFLast(b,1)-playerSFLast(a,1);
+  };
+  const sfCompare=(a,b)=>{
+    const diff=playerSF(b)-playerSF(a);
+    return diff!==0 ? diff : sfTiebreak(a,b);
+  };
+
+  // ── Desempate Medal: últimos 9, 6, 3, 1 hoyo (menor neto gana) ────
+  const playerNetLast=(p,n)=>{
+    const hcp=parseInt(handicapsMedal[p])||0;
+    const s=scores[p]||{};
+    let tot=0,played=0;
+    for(let h=HOLES-n+1;h<=HOLES;h++) if(s[h]){tot+=s[h];played++;}
+    if(played===0) return null;
+    // neto proporcional al tramo
+    const hcpProp=Math.round(hcp*(n/18));
+    return tot-hcpProp;
+  };
+  const medalTiebreak=(a,b)=>{
+    const net9a=playerNetLast(a,9),net9b=playerNetLast(b,9);
+    if(net9a!==null&&net9b!==null&&net9a!==net9b) return net9a-net9b;
+    const net6a=playerNetLast(a,6),net6b=playerNetLast(b,6);
+    if(net6a!==null&&net6b!==null&&net6a!==net6b) return net6a-net6b;
+    const net3a=playerNetLast(a,3),net3b=playerNetLast(b,3);
+    if(net3a!==null&&net3b!==null&&net3a!==net3b) return net3a-net3b;
+    const net1a=playerNetLast(a,1),net1b=playerNetLast(b,1);
+    if(net1a!==null&&net1b!==null) return net1a-net1b;
+    return 0;
+  };
+  const medalCompare=(a,b)=>{
+    const diff=playerNet(a)-playerNet(b);
+    return diff!==0 ? diff : medalTiebreak(a,b);
+  };
+
   const PLAYERS=selectedPlayers;
   const allDone=PLAYERS.length>0&&PLAYERS.every(p=>holesPlayed(p)===18);
-  const leaderboard=[...PLAYERS].filter(p=>holesPlayed(p)>0).sort((a,b)=>gameMode==="medal"?playerNet(a)-playerNet(b):playerSF(b)-playerSF(a));
-  const finalBoard=[...PLAYERS].filter(p=>holesPlayed(p)===18).sort((a,b)=>gameMode==="medal"?playerNet(a)-playerNet(b):playerSF(b)-playerSF(a));
+  const leaderboard=[...PLAYERS].filter(p=>holesPlayed(p)>0).sort((a,b)=>gameMode==="medal"?medalCompare(a,b):sfCompare(a,b));
+  const finalBoard=[...PLAYERS].filter(p=>holesPlayed(p)===18).sort((a,b)=>gameMode==="medal"?medalCompare(a,b):sfCompare(a,b));
 
   const hasTeams=activeTeamDefs.every(t=>(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p)).length>0);
   const teamScores=Object.fromEntries(activeTeamDefs.map(t=>[t.id,calcTeamScore(rotation,t.id,scores,handicaps,lagunadaVariant,PAR,HCP_HOLE)]));
@@ -805,7 +855,7 @@ export default function GolfScorecard() {
               {gameMode==="ambos"&&(
                 <div style={{background:"#0f1a0f",borderRadius:10,border:"1px solid #1a2e1a",overflow:"hidden"}}>
                   <div style={{padding:"8px 14px",borderBottom:"1px solid #1a2e1a",fontSize:11,color:"#6b7280",textTransform:"uppercase",letterSpacing:1}}>🎯 Stableford individual</div>
-                  {[...PLAYERS].filter(p=>holesPlayed(p)>0).sort((a,b)=>playerSF(b)-playerSF(a)).map((p,i)=>{const tm=playerTeam(p);const sf=playerSF(p);const hcp=parseInt(handicaps[p])||0;return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 14px",borderBottom:"1px solid #0f1a0f",background:i===0?"#0a1a0a":"transparent"}}><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14,width:20,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4b5563",fontSize:12}}>#{i+1}</span>}</span><div><div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontWeight:"bold",fontSize:13}}>{p}</span>{tm&&<span style={{fontSize:8,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 4px"}}>{tm.label}</span>}</div><div style={{fontSize:10,color:"#6b7280"}}>SF {hcp} · {holesPlayed(p)}/18</div></div></div><div style={{fontSize:20,fontWeight:"bold",color:sfc(sf)}}>{sf} pts</div></div>);})}
+                  {[...PLAYERS].filter(p=>holesPlayed(p)>0).sort((a,b)=>sfCompare(a,b)).map((p,i)=>{const tm=playerTeam(p);const sf=playerSF(p);const hcp=parseInt(handicaps[p])||0;return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 14px",borderBottom:"1px solid #0f1a0f",background:i===0?"#0a1a0a":"transparent"}}><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14,width:20,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4b5563",fontSize:12}}>#{i+1}</span>}</span><div><div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontWeight:"bold",fontSize:13}}>{p}</span>{tm&&<span style={{fontSize:8,background:tm.badgeBg,color:tm.badgeColor,borderRadius:3,padding:"1px 4px"}}>{tm.label}</span>}</div><div style={{fontSize:10,color:"#6b7280"}}>SF {hcp} · {holesPlayed(p)}/18</div></div></div><div style={{fontSize:20,fontWeight:"bold",color:sfc(sf)}}>{sf} pts</div></div>);})}
                   {PLAYERS.filter(p=>holesPlayed(p)>0).length===0&&<div style={{padding:16,textAlign:"center",color:"#4b5563",fontSize:12}}>Sin scores todavía</div>}
                 </div>
               )}
@@ -820,7 +870,7 @@ export default function GolfScorecard() {
           {gameMode==="ambos"?(
             <>
               <div style={{fontSize:12,color:"#4ade80",marginBottom:10,textTransform:"uppercase",letterSpacing:1,fontWeight:"bold"}}>🎯 Ranking Stableford</div>
-              {[...PLAYERS].filter(p=>holesPlayed(p)>0).sort((a,b)=>playerSF(b)-playerSF(a)).map((p,i)=>{
+              {[...PLAYERS].filter(p=>holesPlayed(p)>0).sort((a,b)=>sfCompare(a,b)).map((p,i)=>{
                 const hcp=parseInt(handicaps[p])||0,sf=playerSF(p),tm=playerTeam(p);
                 return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:i===0?"#0a2010":"#0f1a0f",border:`1px solid ${i===0?"#16a34a":"#1a2e1a"}`,borderRadius:10,padding:"10px 14px",marginBottom:7}}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -835,7 +885,7 @@ export default function GolfScorecard() {
               })}
               {[...PLAYERS].filter(p=>holesPlayed(p)>0).length===0&&<div style={{color:"#4b5563",textAlign:"center",marginBottom:16}}>Sin scores todavía</div>}
               <div style={{fontSize:12,color:"#fbbf24",margin:"18px 0 10px",textTransform:"uppercase",letterSpacing:1,fontWeight:"bold"}}>🏅 Ranking Medal</div>
-              {[...PLAYERS].filter(p=>holesPlayed(p)>0).sort((a,b)=>playerNet(a)-playerNet(b)).map((p,i)=>{
+              {[...PLAYERS].filter(p=>holesPlayed(p)>0).sort((a,b)=>medalCompare(a,b)).map((p,i)=>{
                 const hcpM=parseInt(handicapsMedal[p])||0,net=playerNet(p),tm=playerTeam(p);
                 return(<div key={p} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:i===0?"#0a1400":"#0f1a0f",border:`1px solid ${i===0?"#92400e":"#1a2e1a"}`,borderRadius:10,padding:"10px 14px",marginBottom:7}}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
