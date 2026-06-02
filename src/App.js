@@ -945,12 +945,9 @@ export default function GolfScorecard() {
                   <div style={{fontSize:30,fontWeight:"900",color:s?scoreColor(s,par):"#4b5563",lineHeight:1.1}}>{s||"—"}</div>
                   {isSF&&<div style={{fontSize:13,fontWeight:"bold",color:info?info.color:"#374151",marginTop:2}}>{pts!==null?`${pts}pt${pts!==1?"s":""}`:s?"0pts":"—"}</div>}
                   {info&&isSF&&<div style={{fontSize:9,color:info.color}}>{info.label}</div>}
-                  {tm&&isSF&&(
+                  {tm&&isSF&&!isResting&&myTeamDiff!==null&&(
                     <div style={{marginTop:2,borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:2}}>
-                      {isResting
-                        ?<div style={{fontSize:8,color:"#cbd5e1",fontWeight:"bold"}}>DESCANSA</div>
-                        :myTeamDiff!==null?<div style={{fontSize:10,color:tm.color,fontWeight:"bold"}}>{tm.id}: {fvp(myTeamDiff)}</div>:null
-                      }
+                      <div style={{fontSize:10,color:tm.color,fontWeight:"bold"}}>{tm.id}: {fvp(myTeamDiff)}</div>
                     </div>
                   )}
                 </div>
@@ -1000,7 +997,6 @@ export default function GolfScorecard() {
                   return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"3px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":isResting?"#2d3a4f":"transparent",border:isActive?"1px solid #4ade80":isResting?"1px solid #5a6b85":"1px solid transparent"}}>
                     <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:18}}>{s||"·"}</div>
                     {gameMode!=="ambos"&&isSF&&s&&<div style={{fontSize:11,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
-                    {isResting&&<div style={{fontSize:8,color:"#cbd5e1",lineHeight:1,fontWeight:"bold"}}>descansa</div>}
                   </td>);
                 });
                 // Celdas de hoyo — fila de puntos SF (solo en ambos)
