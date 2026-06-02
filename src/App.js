@@ -938,7 +938,7 @@ export default function GolfScorecard() {
               const myTeamV=tm?lagHoleScore(ap,hole,scores,handicaps,lagunadaVariant,HCP_HOLE):null;
               const myTeamDiff=myTeamV!==null?myTeamV-holePar(hole,lagunadaVariant,PAR):null;
               return(
-                <div key={hole} onClick={()=>handleCell(myPlayer,hole)} style={{background:"#0f1a0f",border:`2px solid ${isActive?"#4ade80":"#1a2e1a"}`,borderRadius:10,padding:"10px 6px",textAlign:"center",cursor:"pointer"}}>
+                <div key={hole} onClick={()=>handleCell(myPlayer,hole)} style={{background:isResting?"#2d3a4f":"#0f1a0f",border:`2px solid ${isActive?"#4ade80":isResting?"#5a6b85":"#1a2e1a"}`,borderRadius:10,padding:"10px 6px",textAlign:"center",cursor:"pointer"}}>
                   <div style={{fontSize:10,color:"#6b7280",fontWeight:"bold"}}>H{hole} · P{par}{extra>0?`+${extra}`:""}</div>
                   <div style={{fontSize:9,color:"#374151",marginBottom:2}}>HCP{hHcp}</div>
                   {/* Score grande y en negrita */}
@@ -948,7 +948,7 @@ export default function GolfScorecard() {
                   {tm&&isSF&&(
                     <div style={{marginTop:2,borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:2}}>
                       {isResting
-                        ?<div style={{fontSize:8,color:"#f87171",opacity:0.7}}>no Laguñada</div>
+                        ?<div style={{fontSize:8,color:"#cbd5e1",fontWeight:"bold"}}>DESCANSA</div>
                         :myTeamDiff!==null?<div style={{fontSize:10,color:tm.color,fontWeight:"bold"}}>{tm.id}: {fvp(myTeamDiff)}</div>:null
                       }
                     </div>
@@ -997,10 +997,10 @@ export default function GolfScorecard() {
                 const scoreCells=(holes)=>holes.map(hole=>{
                   const s=scores[player]?.[hole],par=PAR[hole-1],pts=s?sfPoints(s,par,hcp,HCP_HOLE[hole-1]):null,isActive=activePlayer===player&&activeHole===hole;
                   const ap=tm?activePlayers(rotation,tm.id,hole):[player];const isResting=tm&&!ap.includes(player);
-                  return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"3px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":"transparent",border:isActive?"1px solid #4ade80":"1px solid transparent"}}>
+                  return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"3px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":isResting?"#2d3a4f":"transparent",border:isActive?"1px solid #4ade80":isResting?"1px solid #5a6b85":"1px solid transparent"}}>
                     <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:18}}>{s||"·"}</div>
                     {gameMode!=="ambos"&&isSF&&s&&<div style={{fontSize:11,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
-                    {isResting&&s&&<div style={{fontSize:8,color:"#4b5563",lineHeight:1}}>—lag</div>}
+                    {isResting&&<div style={{fontSize:8,color:"#cbd5e1",lineHeight:1,fontWeight:"bold"}}>descansa</div>}
                   </td>);
                 });
                 // Celdas de hoyo — fila de puntos SF (solo en ambos)
