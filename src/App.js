@@ -98,37 +98,20 @@ const buildRotation = (teams, activeTeamDefs, selectedPlayers, seed = 1) => {
     } else {
       // PRNG propio por equipo (seed combinado para que cada equipo mezcle distinto)
       const rand = mulberry32((seed * 2654435761 + teamIdx * 40503) >>> 0);
-      // Reparto PAREJO: armamos una "cola" de descansos donde cada jugador
-      // aparece la cantidad de veces más equitativa posible, repartiendo
-      // los 18*byeCount slots entre los n jugadores (5-5-4-4, etc.)
-      const totalByes = HOLES * byeCount;
-      const base = Math.floor(totalByes / n);
-      const extra = totalByes % n;
-      // Mezclamos el orden de jugadores para decidir aleatoriamente quiénes
-      // reciben un descanso de más (los "extra")
-      const order = seededShuffle(players.map((_,i)=>i), rand);
-      const byesPerPlayer = {};
-      order.forEach((idx, k)=>{ byesPerPlayer[idx] = base + (k < extra ? 1 : 0); });
-      // Construimos la cola de descansos y la mezclamos
-      let pool = [];
-      for (let i=0;i<n;i++) for (let c=0;c<(byesPerPlayer[i]||0);c++) pool.push(i);
-      pool = seededShuffle(pool, rand);
-      // Asignamos descansos hoyo por hoyo evitando repetir jugador en el mismo hoyo
+      // ── Orden FIJO sorteado una vez ───────────────────────────────
+      // Barajamos UNA sola vez el orden de descanso de los jugadores y lo
+      // repetimos igual en todas las vueltas hasta el hoyo 18.
+      // Ej: orden [Caro, Ana, Dani, Beto] → hoyos 1-4 descansan en ese orden,
+      // hoyos 5-8 lo mismo, y así sucesivamente.
+      const orden = seededShuffle(players.map((_,i)=>i), rand);
       const sittingByHole = Array.from({length:HOLES}, ()=>new Set());
-      const place = (idx) => {
-        // intentamos meterlo en un hoyo que aún tenga cupo y no lo tenga ya
-        for (let h=0; h<HOLES; h++) {
-          if (sittingByHole[h].size < byeCount && !sittingByHole[h].has(idx)) {
-            sittingByHole[h].add(idx); return true;
-          }
-        }
-        return false;
-      };
-      // Orden de colocación mezclado para no sesgar los primeros hoyos
-      for (const idx of pool) {
-        if (!place(idx)) {
-          // fallback: forzar en el primer hoyo con cupo
-          for (let h=0; h<HOLES; h++){ if (sittingByHole[h].size<byeCount){ sittingByHole[h].add(idx); break; } }
+      // Recorremos los hoyos y vamos asignando descansos siguiendo el orden
+      // fijo de forma cíclica (byeCount descansos por hoyo).
+      let pos = 0;
+      for (let h=0; h<HOLES; h++) {
+        for (let b=0; b<byeCount; b++) {
+          sittingByHole[h].add(orden[pos % orden.length]);
+          pos++;
         }
       }
       result[t.id] = Array.from({length:HOLES}, (_,hi)=>players.filter((_,i)=>!sittingByHole[hi].has(i)));
