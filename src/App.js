@@ -64,10 +64,31 @@ const TEAM_DEFS = [
 const makeEmptyTeams = (n) => Object.fromEntries(TEAM_DEFS.slice(0,n).map(t=>[t.id,[]]));
 
 // ─── Rotation ────────────────────────────────────────────────────────
-const buildRotation = (teams, activeTeamDefs, selectedPlayers) => {
+// PRNG con semilla (mulberry32): mismo seed => misma secuencia en todos los dispositivos
+const mulberry32 = (seed) => {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+// Mezcla Fisher-Yates usando el PRNG sembrado
+const seededShuffle = (arr, rand) => {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
+const buildRotation = (teams, activeTeamDefs, selectedPlayers, seed = 1) => {
   const result = {};
   const sizes = activeTeamDefs.map(t=>(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p)).length);
   const minSize = Math.min(...sizes.filter(s=>s>0));
+  let teamIdx = 0;
   for (const t of activeTeamDefs) {
     const players = (teams[t.id]||[]).filter(p=>selectedPlayers.includes(p));
     const n = players.length;
@@ -75,16 +96,44 @@ const buildRotation = (teams, activeTeamDefs, selectedPlayers) => {
     if (byeCount === 0) {
       result[t.id] = Array.from({length:HOLES}, ()=>players);
     } else {
-      result[t.id] = Array.from({length:HOLES}, (_,hi)=>{
-        const sitting = new Set();
-        for (let b=0; b<byeCount; b++) {
-          let idx = (hi*byeCount+b)%n, att=0;
-          while (sitting.has(idx)&&att<n){idx=(idx+1)%n;att++;}
-          sitting.add(idx);
+      // PRNG propio por equipo (seed combinado para que cada equipo mezcle distinto)
+      const rand = mulberry32((seed * 2654435761 + teamIdx * 40503) >>> 0);
+      // Reparto PAREJO: armamos una "cola" de descansos donde cada jugador
+      // aparece la cantidad de veces más equitativa posible, repartiendo
+      // los 18*byeCount slots entre los n jugadores (5-5-4-4, etc.)
+      const totalByes = HOLES * byeCount;
+      const base = Math.floor(totalByes / n);
+      const extra = totalByes % n;
+      // Mezclamos el orden de jugadores para decidir aleatoriamente quiénes
+      // reciben un descanso de más (los "extra")
+      const order = seededShuffle(players.map((_,i)=>i), rand);
+      const byesPerPlayer = {};
+      order.forEach((idx, k)=>{ byesPerPlayer[idx] = base + (k < extra ? 1 : 0); });
+      // Construimos la cola de descansos y la mezclamos
+      let pool = [];
+      for (let i=0;i<n;i++) for (let c=0;c<(byesPerPlayer[i]||0);c++) pool.push(i);
+      pool = seededShuffle(pool, rand);
+      // Asignamos descansos hoyo por hoyo evitando repetir jugador en el mismo hoyo
+      const sittingByHole = Array.from({length:HOLES}, ()=>new Set());
+      const place = (idx) => {
+        // intentamos meterlo en un hoyo que aún tenga cupo y no lo tenga ya
+        for (let h=0; h<HOLES; h++) {
+          if (sittingByHole[h].size < byeCount && !sittingByHole[h].has(idx)) {
+            sittingByHole[h].add(idx); return true;
+          }
         }
-        return players.filter((_,i)=>!sitting.has(i));
-      });
+        return false;
+      };
+      // Orden de colocación mezclado para no sesgar los primeros hoyos
+      for (const idx of pool) {
+        if (!place(idx)) {
+          // fallback: forzar en el primer hoyo con cupo
+          for (let h=0; h<HOLES; h++){ if (sittingByHole[h].size<byeCount){ sittingByHole[h].add(idx); break; } }
+        }
+      }
+      result[t.id] = Array.from({length:HOLES}, (_,hi)=>players.filter((_,i)=>!sittingByHole[hi].has(i)));
     }
+    teamIdx++;
   }
   return result;
 };
@@ -273,6 +322,9 @@ export default function GolfScorecard() {
   const [editingCourse,s_editing] = useState(null);
   // ── NUEVO: bonus por equipo ───────────────────────────────────────
   const [teamBonus,s_teamBonus]   = useState({});
+  // ── NUEVO: semilla de rotación (sorteo de descansos aleatorio pero igual en todos los dispositivos) ──
+  const [rotationSeed,s_rotSeed]  = useState(1);
+  const rotationSeedRef = useRef(1);
 
   const activeCourse = courses.find(c=>c.id===activeCourseId)||courses[0];
   const PAR      = activeCourse.par;
@@ -280,14 +332,15 @@ export default function GolfScorecard() {
   const TOTAL_PAR= PAR.reduce((a,b)=>a+b,0);
 
   const activeTeamDefs = TEAM_DEFS.slice(0,numTeams);
-  const rotation = buildRotation(teams,activeTeamDefs,selectedPlayers);
+  rotationSeedRef.current = rotationSeed;
+  const rotation = buildRotation(teams,activeTeamDefs,selectedPlayers,rotationSeed);
   const teamSizes = activeTeamDefs.map(t=>(teams[t.id]||[]).filter(p=>selectedPlayers.includes(p)).length);
   const hasUnequalTeams = teamSizes.some(s=>s>0)&&new Set(teamSizes.filter(s=>s>0)).size>1;
   const minTeamSize = teamSizes.filter(s=>s>0).length>0?Math.min(...teamSizes.filter(s=>s>0)):0;
 
   // ── Save setup → local + Google Sheets ────────────────────────────
   const saveSetup = async (sel,hcaps,hcapsM,plist,mode,lv,nt,tm,cid) => {
-    const data = {selectedPlayers:sel,handicaps:hcaps,handicapsMedal:hcapsM,playerList:plist,gameMode:mode,lagunadaVariant:lv,numTeams:nt,teams:tm,activeCourseId:cid};
+    const data = {selectedPlayers:sel,handicaps:hcaps,handicapsMedal:hcapsM,playerList:plist,gameMode:mode,lagunadaVariant:lv,numTeams:nt,teams:tm,activeCourseId:cid,rotationSeed:rotationSeedRef.current};
     try { localStorage.setItem(SETUP_KEY,JSON.stringify(data)); } catch(e) {}
     // Sync to GAS (no await para no bloquear UI)
     lastWriteRef.current = Date.now();
@@ -353,6 +406,7 @@ export default function GolfScorecard() {
           s_numTeams(nt);
           s_teams(d.teams||makeEmptyTeams(nt));
           if (d.activeCourseId) s_acid(d.activeCourseId);
+          if (d.rotationSeed){ s_rotSeed(d.rotationSeed); rotationSeedRef.current=d.rotationSeed; }
           if (d.selectedPlayers?.length>0) s_view("grid");
         } catch {}
       }
@@ -397,6 +451,7 @@ export default function GolfScorecard() {
             const nt=d.numTeams||2; s_numTeams(nt);
             s_teams(d.teams||makeEmptyTeams(nt));
             if(d.activeCourseId) s_acid(d.activeCourseId);
+            if(d.rotationSeed){ s_rotSeed(d.rotationSeed); rotationSeedRef.current=d.rotationSeed; }
           } catch {}
         }
         if (all[COURSES_KEY]) {
@@ -438,6 +493,17 @@ export default function GolfScorecard() {
 
   const [showResetConfirm, s_showResetConfirm] = useState(false);
 
+  // ── NUEVO: generar un sorteo de descansos nuevo (semilla aleatoria, sincronizada) ──
+  const sortearDescansos = (forzar=false) => {
+    // Si ya hay un sorteo válido y no se fuerza, no lo regeneramos
+    if (!forzar && rotationSeedRef.current && rotationSeedRef.current !== 1) return;
+    const nuevoSeed = (Math.floor(Math.random()*2147483646)+1) >>> 0;
+    rotationSeedRef.current = nuevoSeed;
+    s_rotSeed(nuevoSeed);
+    // Guardar en setup (Sheets + local) para que todos los dispositivos usen el mismo sorteo
+    saveSetup(selectedPlayers,handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);
+  };
+
   const nuevaRonda = async () => {
     s_scores({});
     s_syncing(true);
@@ -446,9 +512,10 @@ export default function GolfScorecard() {
     s_sel([]);
     s_teams(makeEmptyTeams(numTeams));
     s_teamBonus({});
+    s_rotSeed(1); rotationSeedRef.current=1;
     gasWrite(BONUS_KEY, JSON.stringify({}));
-    try { localStorage.setItem(SETUP_KEY, JSON.stringify({selectedPlayers:[],handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams:makeEmptyTeams(numTeams),activeCourseId})); } catch(e) {}
-    gasWrite(SETUP_KEY, JSON.stringify({selectedPlayers:[],handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams:makeEmptyTeams(numTeams),activeCourseId}));
+    try { localStorage.setItem(SETUP_KEY, JSON.stringify({selectedPlayers:[],handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams:makeEmptyTeams(numTeams),activeCourseId,rotationSeed:1})); } catch(e) {}
+    gasWrite(SETUP_KEY, JSON.stringify({selectedPlayers:[],handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams:makeEmptyTeams(numTeams),activeCourseId,rotationSeed:1}));
     s_view("setup");
     s_setupTab("players");
     s_showResetConfirm(false);
@@ -586,6 +653,7 @@ export default function GolfScorecard() {
         <div style={{background:"linear-gradient(135deg,#052e16,#0a2010)",borderBottom:"1px solid #166534",padding:"14px 16px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:10}}>
           <button onClick={()=>s_showRot(false)} style={{background:"transparent",border:"none",color:"#4ade80",cursor:"pointer",fontSize:20}}>←</button>
           <div style={{flex:1}}><div style={{fontSize:15,fontWeight:"bold",color:"#4ade80"}}>📋 Orden de Juego — Laguñada</div><div style={{fontSize:11,color:"#6b7280"}}>{lagunadaVariant==="1ball"?"1 Pelota":"2 Pelotas"} · {numTeams} equipos</div></div>
+          <button onClick={()=>sortearDescansos(true)} style={{padding:"7px 12px",borderRadius:8,border:"1px solid #92400e",background:"transparent",color:"#fbbf24",cursor:"pointer",fontSize:12,fontWeight:"bold"}}>🎲 Re-sortear</button>
           <button onClick={printRotation} style={{padding:"7px 12px",borderRadius:8,border:"none",background:"#16a34a",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:"bold"}}>🖨️ PDF</button>
         </div>
         <div style={{padding:16}}>
@@ -759,7 +827,7 @@ export default function GolfScorecard() {
           }
         </>}
 
-        <button onClick={()=>selectedPlayers.length>0&&s_view("grid")} disabled={selectedPlayers.length===0} style={{width:"100%",marginTop:18,padding:14,borderRadius:10,border:"none",background:selectedPlayers.length>0?"#16a34a":"#1a2e1a",color:selectedPlayers.length>0?"#fff":"#4b5563",cursor:selectedPlayers.length>0?"pointer":"not-allowed",fontSize:16,fontWeight:"bold"}}>
+        <button onClick={()=>{if(selectedPlayers.length>0){sortearDescansos(false);s_view("grid");}}} disabled={selectedPlayers.length===0} style={{width:"100%",marginTop:18,padding:14,borderRadius:10,border:"none",background:selectedPlayers.length>0?"#16a34a":"#1a2e1a",color:selectedPlayers.length>0?"#fff":"#4b5563",cursor:selectedPlayers.length>0?"pointer":"not-allowed",fontSize:16,fontWeight:"bold"}}>
           {selectedPlayers.length>0?`Empezar · ${activeCourse.name} · ${selectedPlayers.length} jugadores ⛳`:"Seleccioná al menos un jugador"}
         </button>
       </div>
