@@ -354,6 +354,27 @@ export default function GolfScorecard() {
     try { localStorage.setItem(BONUS_KEY, JSON.stringify(nb)); } catch(e) {}
   };
 
+  // ── Ref con los scores actuales (para que el poll vea siempre lo último) ──
+  const scoresRef = useRef({});
+  scoresRef.current = scores;
+
+  // ── Merge de scores: combina nube + local sin perder datos ─────────
+  // Para cada jugador/hoyo, si alguno de los dos lados tiene un valor cargado,
+  // se conserva. Así un poll nunca borra un score que ya tenías localmente.
+  const mergeScores = (local, remote) => {
+    const out = {};
+    const players = new Set([...Object.keys(local||{}), ...Object.keys(remote||{})]);
+    for (const p of players) {
+      const lh = local?.[p] || {};
+      const rh = remote?.[p] || {};
+      // remote primero, local pisa: ante conflicto gana lo local (lo último que cargaste),
+      // y los hoyos que solo están en remote también se conservan.
+      const merged = {...rh, ...lh};
+      if (Object.keys(merged).length>0) out[p] = merged;
+    }
+    return out;
+  };
+
   // ── Load: todo desde Google Sheets (setup + courses + scores + bonus)
   const loadData = useCallback(async () => {
     s_syncing(true);
@@ -394,9 +415,17 @@ export default function GolfScorecard() {
         } catch {}
       }
 
-      // Scores
+      // Scores — merge con lo que haya en local para no perder nada
       if (all[SCORES_KEY]) {
-        try { s_scores(JSON.parse(all[SCORES_KEY])); } catch {}
+        try {
+          const remote = JSON.parse(all[SCORES_KEY]);
+          let localScores = {};
+          try { localScores = JSON.parse(localStorage.getItem(SCORES_KEY)||"{}"); } catch {}
+          s_scores(mergeScores(localScores, remote));
+        } catch {}
+      } else {
+        // Si la nube no tiene nada aún, usamos lo local
+        try { const ls=JSON.parse(localStorage.getItem(SCORES_KEY)||"{}"); if(Object.keys(ls).length) s_scores(ls); } catch {}
       }
 
       // Bonus
@@ -421,7 +450,16 @@ export default function GolfScorecard() {
       if (Date.now() - lastWriteRef.current < 15000) return;
       try {
         const all = await gasRead();
-        if (all[SCORES_KEY]) { try { s_scores(JSON.parse(all[SCORES_KEY])); } catch {} }
+        // Revalidamos DESPUÉS del await: si justo cargaste algo mientras leíamos,
+        // no aplicamos los scores viejos de la nube.
+        if (Date.now() - lastWriteRef.current < 15000) return;
+        if (all[SCORES_KEY]) {
+          try {
+            const remote = JSON.parse(all[SCORES_KEY]);
+            // MERGE en vez de pisar: nunca borramos un score local
+            s_scores(mergeScores(scoresRef.current, remote));
+          } catch {}
+        }
         if (all[SETUP_KEY]) {
           try {
             const d=JSON.parse(all[SETUP_KEY]);
@@ -510,8 +548,11 @@ export default function GolfScorecard() {
     if(!activePlayer||!activeHole)return;
     const val=parseInt(inputVal);
     const ns={...scores};
-    if(!ns[activePlayer])ns[activePlayer]={};
+    if(!ns[activePlayer])ns[activePlayer]={...ns[activePlayer]};
+    else ns[activePlayer]={...ns[activePlayer]};
     if(!isNaN(val)&&val>0)ns[activePlayer][activeHole]=val;else delete ns[activePlayer][activeHole];
+    scoresRef.current=ns;            // ref al toque para que el poll no pise
+    lastWriteRef.current=Date.now(); // bloqueamos el poll ya mismo
     s_scores(ns);await saveScores(ns);s_ap(null);s_ah(null);s_iv("");
   };
 
