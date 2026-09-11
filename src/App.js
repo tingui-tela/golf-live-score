@@ -478,6 +478,22 @@ export default function GolfScorecard() {
 
   const addNewPlayer=()=>{const name=newPlayerName.trim();if(!name||playerList.includes(name))return;const nl=[...playerList,name],ns=[...selectedPlayers,name];s_plist(nl);s_sel(ns);s_npn("");s_showAdd(false);saveSetup(ns,handicaps,handicapsMedal,nl,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
 
+  // ── NUEVO: eliminar un jugador de la lista ────────────────────────
+  const [playerToDelete,s_playerToDelete] = useState(null);
+  const deletePlayer=(p)=>{
+    const nl=playerList.filter(x=>x!==p);
+    const ns=selectedPlayers.filter(x=>x!==p);
+    // sacarlo también de los equipos
+    const newTeams=Object.fromEntries(Object.entries(teams).map(([id,pls])=>[id,pls.filter(x=>x!==p)]));
+    // limpiar sus handicaps
+    const nh={...handicaps}; delete nh[p];
+    const nhm={...handicapsMedal}; delete nhm[p];
+    s_plist(nl); s_sel(ns); s_teams(newTeams); s_hcaps(nh); s_hcapsM(nhm);
+    if(myPlayer===p) s_myPlayer(null);
+    saveSetup(ns,nh,nhm,nl,gameMode,lagunadaVariant,numTeams,newTeams,activeCourseId);
+    s_playerToDelete(null);
+  };
+
   const [showResetConfirm, s_showResetConfirm] = useState(false);
 
   // ── NUEVO: generar un sorteo de descansos nuevo (semilla aleatoria, sincronizada) ──
@@ -728,6 +744,20 @@ export default function GolfScorecard() {
           </div>
         </div>
       )}
+
+      {playerToDelete&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:"#0f1a0f",border:"2px solid #dc2626",borderRadius:16,padding:24,maxWidth:320,width:"100%",textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:12}}>🗑️</div>
+            <div style={{fontSize:18,fontWeight:"bold",color:"#f87171",marginBottom:8}}>¿Eliminar a {playerToDelete}?</div>
+            <div style={{fontSize:14,color:"#6b7280",marginBottom:20}}>Se va a quitar de la lista de jugadores, de los equipos y sus hándicaps. Podés volver a agregarlo después.</div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>s_playerToDelete(null)} style={{flex:1,padding:"12px",borderRadius:10,border:"1px solid #374151",background:"transparent",color:"#9ca3af",cursor:"pointer",fontSize:14,fontWeight:"bold"}}>Cancelar</button>
+              <button onClick={()=>deletePlayer(playerToDelete)} style={{flex:1,padding:"12px",borderRadius:10,border:"none",background:"#dc2626",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:"bold"}}>Sí, eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{padding:16}}>
         <div style={{display:"flex",gap:3,marginBottom:14,background:"#0f1a0f",borderRadius:10,padding:4}}>
           {[["course","🏌️ Cancha"],["players","👤 Jugadores"],["teams","🤝 Laguñada"]].map(([tab,label])=>(
@@ -779,6 +809,7 @@ export default function GolfScorecard() {
                 <div onClick={()=>togglePlayer(p)} style={{width:22,height:22,borderRadius:5,border:`2px solid ${sel?"#16a34a":"#374151"}`,background:sel?"#16a34a":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{sel&&<span style={{color:"#fff",fontSize:14}}>✓</span>}</div>
                 <div onClick={()=>togglePlayer(p)} style={{flex:1,fontWeight:sel?"bold":"normal",color:sel?"#e2e8f0":"#6b7280",cursor:"pointer",fontSize:14}}>{p}</div>
                 {sel&&<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><span style={{fontSize:9,color:"#4ade80",fontWeight:"bold"}}>SF</span><input type="number" min="0" max="54" value={handicaps[p]??""} onChange={e=>setHandicap(p,e.target.value)} placeholder="0" style={{width:48,background:"#0f2a0f",border:"1px solid #166534",borderRadius:6,color:"#4ade80",fontSize:15,fontWeight:"bold",padding:"4px 4px",textAlign:"center",outline:"none"}}/></div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><span style={{fontSize:9,color:"#fbbf24",fontWeight:"bold"}}>Medal</span><input type="number" min="0" max="54" value={handicapsMedal[p]??""} onChange={e=>setHandicapMedal(p,e.target.value)} placeholder="0" style={{width:48,background:"#1a1400",border:"1px solid #92400e",borderRadius:6,color:"#fbbf24",fontSize:15,fontWeight:"bold",padding:"4px 4px",textAlign:"center",outline:"none"}}/></div></div>}
+                <button onClick={()=>s_playerToDelete(p)} style={{flexShrink:0,width:32,height:32,borderRadius:7,border:"1px solid #5f1e1e",background:"transparent",color:"#f87171",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}} title="Eliminar jugador">🗑️</button>
               </div>
             );})}
           </div>
@@ -1034,9 +1065,9 @@ export default function GolfScorecard() {
             <thead>
               <tr style={{background:"#0a1a0a"}}>
                 <th style={{padding:"8px 10px",textAlign:"left",color:"#6b7280",position:"sticky",left:0,background:"#0a1a0a",borderRight:"1px solid #1a2e1a",minWidth:100}}>Jugador</th>
-                {Array.from({length:9},(_,i)=>i+1).map(h=>(<th key={h} style={{padding:"5px 3px",textAlign:"center",color:"#6b7280",minWidth:38}}><div style={{fontSize:13}}>H{h}</div><div style={{fontSize:10,color:"#374151"}}>P{PAR[h-1]}</div></th>))}
+                {Array.from({length:9},(_,i)=>i+1).map(h=>(<th key={h} style={{padding:"6px 3px",textAlign:"center",color:"#6b7280",minWidth:46}}><div style={{fontSize:14,fontWeight:"bold"}}>H{h}</div><div style={{fontSize:10,color:"#4b5563"}}>P{PAR[h-1]}</div></th>))}
                 <th style={{padding:"4px",textAlign:"center",color:"#86efac",minWidth:40,background:"#071a07",borderLeft:"2px solid #166534",borderRight:"2px solid #166534"}}><div style={{fontSize:12,fontWeight:"bold"}}>OUT</div><div style={{fontSize:10,color:"#374151"}}>{PAR.slice(0,9).reduce((a,b)=>a+b,0)}</div></th>
-                {Array.from({length:9},(_,i)=>i+10).map(h=>(<th key={h} style={{padding:"5px 3px",textAlign:"center",color:"#6b7280",minWidth:38}}><div style={{fontSize:13}}>H{h}</div><div style={{fontSize:10,color:"#374151"}}>P{PAR[h-1]}</div></th>))}
+                {Array.from({length:9},(_,i)=>i+10).map(h=>(<th key={h} style={{padding:"6px 3px",textAlign:"center",color:"#6b7280",minWidth:46}}><div style={{fontSize:14,fontWeight:"bold"}}>H{h}</div><div style={{fontSize:10,color:"#4b5563"}}>P{PAR[h-1]}</div></th>))}
                 <th style={{padding:"4px",textAlign:"center",color:"#86efac",minWidth:40,background:"#071a07",borderLeft:"2px solid #166634",borderRight:"2px solid #166634"}}><div style={{fontSize:12,fontWeight:"bold"}}>IN</div><div style={{fontSize:10,color:"#374151"}}>{PAR.slice(9).reduce((a,b)=>a+b,0)}</div></th>
                 {gameMode==="ambos"?<><th style={{padding:"6px 4px",textAlign:"center",color:"#4ade80",minWidth:44,fontSize:11}}>PTS<br/>SF</th><th style={{padding:"6px 4px",textAlign:"center",color:"#fbbf24",minWidth:44,fontSize:11}}>NETO<br/>M</th></>:<th style={{padding:"8px 6px",textAlign:"center",color:"#4ade80",minWidth:44}}>{gameMode==="medal"?"TOT":"PTS"}</th>}
                 {gameMode==="medal"&&<th style={{padding:"8px 6px",textAlign:"center",color:"#FFD700",minWidth:44}}>NETO</th>}
@@ -1056,9 +1087,9 @@ export default function GolfScorecard() {
                 const scoreCells=(holes)=>holes.map(hole=>{
                   const s=scores[player]?.[hole],par=PAR[hole-1],pts=s?sfPoints(s,par,hcp,HCP_HOLE[hole-1]):null,isActive=activePlayer===player&&activeHole===hole;
                   const ap=tm?activePlayers(rotation,tm.id,hole):[player];const isResting=tm&&!ap.includes(player);
-                  return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"3px 1px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":isResting?"#2d3a4f":"transparent",border:isActive?"1px solid #4ade80":isResting?"1px solid #5a6b85":"1px solid transparent"}}>
-                    <div style={{color:s?scoreColor(s,par):"#374151",fontWeight:s?"bold":"normal",fontSize:18}}>{s||"·"}</div>
-                    {gameMode!=="ambos"&&isSF&&s&&<div style={{fontSize:11,color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
+                  return(<td key={hole} onClick={()=>{if(myPlayer!==player)s_myPlayer(player);handleCell(player,hole);}} style={{padding:"7px 3px",textAlign:"center",cursor:"pointer",background:isActive?"#052e16":isResting?"#2d3a4f":"transparent",border:isActive?"1px solid #4ade80":isResting?"1px solid #5a6b85":"1px solid transparent"}}>
+                    <div style={{color:s?scoreColor(s,par):"#4b5563",fontWeight:s?"900":"normal",fontSize:24,lineHeight:1.1,textShadow:s?"0 1px 3px rgba(0,0,0,0.55)":"none"}}>{s||"·"}</div>
+                    {gameMode!=="ambos"&&isSF&&s&&<div style={{fontSize:12,fontWeight:"bold",color:pts===0?"#4b5563":pts===1?"#94a3b8":pts===2?"#4ade80":pts===3?"#ff6b35":"#FFD700"}}>{pts}p</div>}
                   </td>);
                 });
                 // Celdas de hoyo — fila de puntos SF (solo en ambos)
