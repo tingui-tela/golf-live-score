@@ -56,6 +56,32 @@ const DEFAULT_COURSES = [
   }
 ];
 
+// ─── Tablas de Hándicap de Juego (San Andrés) ────────────────────────
+// Transcritas del PDF oficial. Formato por fila: [HI desde, HI hasta, Hcp de juego]
+// Stableford usa la tabla 85%; Medal usa la tabla 100%.
+const HCP_TABLES={
+  azul_100:[[-5,-4.4,-6],[-4.3,-3.5,-5],[-3.4,-2.7,-4],[-2.6,-1.8,-3],[-1.7,-0.9,-2],[-0.8,0,-1],[0.1,0.8,0],[0.9,1.7,1],[1.8,2.6,2],[2.7,3.4,3],[3.5,4.3,4],[4.4,5.2,5],[5.3,6,6],[6.1,6.9,7],[7,7.8,8],[7.9,8.6,9],[8.7,9.5,10],[9.6,10.4,11],[10.5,11.2,12],[11.3,12.1,13],[12.2,13,14],[13.1,13.9,15],[14,14.7,16],[14.8,15.6,17],[15.7,16.5,18],[16.6,17.3,19],[17.4,18.2,20],[18.3,19.1,21],[19.2,19.9,22],[20,20.8,23],[20.9,21.7,24],[21.8,22.5,25],[22.6,23.4,26],[23.5,24.3,27],[24.4,25.2,28],[25.3,26,29],[26.1,26.9,30],[27,27.8,31],[27.9,28.6,32],[28.7,29.5,33],[29.6,30.4,34],[30.5,31.2,35],[31.3,32.1,36],[32.2,33,37],[33.1,33.8,38],[33.9,34.7,39],[34.8,35.6,40],[35.7,36.5,41],[36.6,37.3,42],[37.4,38.2,43],[38.3,39.1,44],[39.2,39.9,45],[40,40.8,46],[40.9,41.7,47],[41.8,42.5,48],[42.6,43.4,49],[43.5,44.3,50],[44.4,45.1,51],[45.2,46,52],[46.1,46.9,53],[47,47.8,54],[47.9,48.6,55],[48.7,49.5,56],[49.6,50.4,57],[50.5,51.2,58],[51.3,52.1,59],[52.2,53,60],[53.1,53.8,61],[53.9,53.9,62]],
+  azul_85:[[-5,-4.2,-5],[-4.1,-3.2,-4],[-3.1,-2.2,-3],[-2.1,-1.1,-2],[-1,-0.1,-1],[0,0.9,0],[1,1.9,1],[2,2.9,2],[3,4,3],[4.1,5,4],[5.1,6,5],[6.1,7,6],[7.1,8.1,7],[8.2,9.1,8],[9.2,10.1,9],[10.2,11.1,10],[11.2,12.1,11],[12.2,13.2,12],[13.3,14.2,13],[14.3,15.2,14],[15.3,16.2,15],[16.3,17.3,16],[17.4,18.3,17],[18.4,19.3,18],[19.4,20.3,19],[20.4,21.3,20],[21.4,22.4,21],[22.5,23.4,22],[23.5,24.4,23],[24.5,25.4,24],[25.5,26.5,25],[26.6,27.5,26],[27.6,28.5,27],[28.6,29.5,28],[29.6,30.6,29],[30.7,31.6,30],[31.7,32.6,31],[32.7,33.6,32],[33.7,34.6,33],[34.7,35.7,34],[35.8,36.7,35],[36.8,37.7,36],[37.8,38.7,37],[38.8,39.8,38],[39.9,40.8,39],[40.9,41.8,40],[41.9,42.8,41],[42.9,43.8,42],[43.9,44.9,43],[45,45.9,44],[46,46.9,45],[47,47.9,46],[48,49,47],[49.1,50,48],[50.1,51,49],[51.1,52,50],[52.1,53,51],[53.1,53.9,52]],
+  blanca_100:[[-5,-4.6,-7],[-4.5,-3.7,-6],[-3.6,-2.8,-5],[-2.7,-1.9,-4],[-1.8,-1,-3],[-0.9,-0.1,-2],[0,0.7,-1],[0.8,1.6,0],[1.7,2.5,1],[2.6,3.4,2],[3.5,4.3,3],[4.4,5.2,4],[5.3,6,5],[6.1,6.9,6],[7,7.8,7],[7.9,8.7,8],[8.8,9.6,9],[9.7,10.5,10],[10.6,11.3,11],[11.4,12.2,12],[12.3,13.1,13],[13.2,14,14],[14.1,14.9,15],[15,15.8,16],[15.9,16.6,17],[16.7,17.5,18],[17.6,18.4,19],[18.5,19.3,20],[19.4,20.2,21],[20.3,21,22],[21.1,21.9,23],[22,22.8,24],[22.9,23.7,25],[23.8,24.6,26],[24.7,25.5,27],[25.6,26.3,28],[26.4,27.2,29],[27.3,28.1,30],[28.2,29,31],[29.1,29.9,32],[30,30.8,33],[30.9,31.6,34],[31.7,32.5,35],[32.6,33.4,36],[33.5,34.3,37],[34.4,35.2,38],[35.3,36.1,39],[36.2,36.9,40],[37,37.8,41],[37.9,38.7,42],[38.8,39.6,43],[39.7,40.5,44],[40.6,41.4,45],[41.5,42.2,46],[42.3,43.1,47],[43.2,44,48],[44.1,44.9,49],[45,45.8,50],[45.9,46.7,51],[46.8,47.5,52],[47.6,48.4,53],[48.5,49.3,54],[49.4,50.2,55],[50.3,51.1,56],[51.2,51.9,57],[52,52.8,58],[52.9,53.7,59],[53.8,53.9,60]],
+  blanca_85:[[-5,-4.5,-6],[-4.4,-3.5,-5],[-3.4,-2.4,-4],[-2.3,-1.4,-3],[-1.3,-0.4,-2],[-0.3,0.7,-1],[0.8,1.7,0],[1.8,2.7,1],[2.8,3.8,2],[3.9,4.8,3],[4.9,5.9,4],[6,6.9,5],[7,7.9,6],[8,9,7],[9.1,10,8],[10.1,11.1,9],[11.2,12.1,10],[12.2,13.1,11],[13.2,14.2,12],[14.3,15.2,13],[15.3,16.2,14],[16.3,17.3,15],[17.4,18.3,16],[18.4,19.4,17],[19.5,20.4,18],[20.5,21.4,19],[21.5,22.5,20],[22.6,23.5,21],[23.6,24.6,22],[24.7,25.6,23],[25.7,26.6,24],[26.7,27.7,25],[27.8,28.7,26],[28.8,29.7,27],[29.8,30.8,28],[30.9,31.8,29],[31.9,32.9,30],[33,33.9,31],[34,34.9,32],[35,36,33],[36.1,37,34],[37.1,38.1,35],[38.2,39.1,36],[39.2,40.1,37],[40.2,41.2,38],[41.3,42.2,39],[42.3,43.2,40],[43.3,44.3,41],[44.4,45.3,42],[45.4,46.4,43],[46.5,47.4,44],[47.5,48.4,45],[48.5,49.5,46],[49.6,50.5,47],[50.6,51.6,48],[51.7,52.6,49],[52.7,53.6,50],[53.7,53.9,51]],
+};
+// Canchas que tienen tablas de conversión índice → hándicap cargadas.
+// Para agregar otra cancha en el futuro: sumá su id acá (y sus tablas en HCP_TABLES si usaran otras).
+const COURSES_WITH_HCP_TABLES = ["san_andres"];
+const courseHasHcpTable = (courseId) => COURSES_WITH_HCP_TABLES.includes(courseId);
+// Dado un índice, salida ("azul"/"blanca") y porcentaje ("100"/"85"), devuelve el hcp de juego
+const hcpFromIndex = (idx, salida, pct) => {
+  if (idx===""||idx===null||idx===undefined) return null;
+  const v = parseFloat(String(idx).replace(",","."));
+  if (isNaN(v)) return null;
+  const t = HCP_TABLES[`${salida}_${pct}`];
+  if (!t) return null;
+  for (const [desde,hasta,hcp] of t) { if (v>=desde && v<=hasta) return hcp; }
+  if (v < t[0][0]) return t[0][2];
+  if (v > t[t.length-1][1]) return t[t.length-1][2];
+  return null;
+};
+
 // ─── Team config ─────────────────────────────────────────────────────
 const TEAM_DEFS = [
   { id:"A", label:"Equipo A", color:"#60a5fa", bg:"#060f1a", border:"#1e3a5f", badgeBg:"#1e3a8a", badgeColor:"#93c5fd" },
@@ -294,6 +320,9 @@ export default function GolfScorecard() {
   const [selectedPlayers,s_sel]   = useState([]);
   const [handicaps,s_hcaps]       = useState({});
   const [handicapsMedal,s_hcapsM]  = useState({});
+  // ── NUEVO: índice y salida por jugador (para autocompletar HCP en San Andrés) ──
+  const [playerIndex,s_pidx]      = useState({}); // { jugador: "12.4" }
+  const [playerTee,s_ptee]        = useState({}); // { jugador: "azul" | "blanca" }
   const [playerList,s_plist]      = useState(_grupo==="1"?ALL_PLAYERS:[]);
   const [newPlayerName,s_npn]     = useState("");
   const [showAdd,s_showAdd]       = useState(false);
@@ -312,6 +341,11 @@ export default function GolfScorecard() {
   // ── NUEVO: semilla de rotación (sorteo de descansos aleatorio pero igual en todos los dispositivos) ──
   const [rotationSeed,s_rotSeed]  = useState(1);
   const rotationSeedRef = useRef(1);
+  // Refs de índice/salida para incluirlos en saveSetup sin cambiar su firma
+  const playerIndexRef = useRef({});
+  const playerTeeRef = useRef({});
+  playerIndexRef.current = playerIndex;
+  playerTeeRef.current = playerTee;
 
   const activeCourse = courses.find(c=>c.id===activeCourseId)||courses[0];
   const PAR      = activeCourse.par;
@@ -327,7 +361,7 @@ export default function GolfScorecard() {
 
   // ── Save setup → local + Google Sheets ────────────────────────────
   const saveSetup = async (sel,hcaps,hcapsM,plist,mode,lv,nt,tm,cid) => {
-    const data = {selectedPlayers:sel,handicaps:hcaps,handicapsMedal:hcapsM,playerList:plist,gameMode:mode,lagunadaVariant:lv,numTeams:nt,teams:tm,activeCourseId:cid,rotationSeed:rotationSeedRef.current};
+    const data = {selectedPlayers:sel,handicaps:hcaps,handicapsMedal:hcapsM,playerList:plist,gameMode:mode,lagunadaVariant:lv,numTeams:nt,teams:tm,activeCourseId:cid,rotationSeed:rotationSeedRef.current,playerIndex:playerIndexRef.current,playerTee:playerTeeRef.current};
     try { localStorage.setItem(SETUP_KEY,JSON.stringify(data)); } catch(e) {}
     // Sync to GAS (no await para no bloquear UI)
     lastWriteRef.current = Date.now();
@@ -394,6 +428,8 @@ export default function GolfScorecard() {
           s_teams(d.teams||makeEmptyTeams(nt));
           if (d.activeCourseId) s_acid(d.activeCourseId);
           if (d.rotationSeed){ s_rotSeed(d.rotationSeed); rotationSeedRef.current=d.rotationSeed; }
+          if (d.playerIndex){ s_pidx(d.playerIndex); playerIndexRef.current=d.playerIndex; }
+          if (d.playerTee){ s_ptee(d.playerTee); playerTeeRef.current=d.playerTee; }
           if (d.selectedPlayers?.length>0) s_view("grid");
         } catch {}
       }
@@ -439,6 +475,8 @@ export default function GolfScorecard() {
             s_teams(d.teams||makeEmptyTeams(nt));
             if(d.activeCourseId) s_acid(d.activeCourseId);
             if(d.rotationSeed){ s_rotSeed(d.rotationSeed); rotationSeedRef.current=d.rotationSeed; }
+            if(d.playerIndex){ s_pidx(d.playerIndex); playerIndexRef.current=d.playerIndex; }
+            if(d.playerTee){ s_ptee(d.playerTee); playerTeeRef.current=d.playerTee; }
           } catch {}
         }
         if (all[COURSES_KEY]) {
@@ -459,6 +497,27 @@ export default function GolfScorecard() {
   const togglePlayer=(p)=>{const n=selectedPlayers.includes(p)?selectedPlayers.filter(x=>x!==p):[...selectedPlayers,p];s_sel(n);saveSetup(n,handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
   const setHandicap=(p,v)=>{const n={...handicaps,[p]:v};s_hcaps(n);saveSetup(selectedPlayers,n,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
   const setHandicapMedal=(p,v)=>{const n={...handicapsMedal,[p]:v};s_hcapsM(n);saveSetup(selectedPlayers,handicaps,n,playerList,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);};
+
+  // ── NUEVO: setear índice/salida y autocompletar HCP según tablas de San Andrés ──
+  // Stableford ← tabla 85% · Medal ← tabla 100%. Requiere índice y salida cargados.
+  const applyIndexTee=(p, {idx, tee})=>{
+    const nIdx = idx!==undefined ? {...playerIndex,[p]:idx} : playerIndex;
+    const nTee = tee!==undefined ? {...playerTee,[p]:tee} : playerTee;
+    const useIdx = nIdx[p];
+    const useTee = nTee[p];
+    let nHcaps = handicaps, nHcapsM = handicapsMedal;
+    // Solo autocompletamos si hay índice y salida elegidos
+    if ((useIdx!==undefined && useIdx!=="") && useTee) {
+      const sf = hcpFromIndex(useIdx, useTee, "85");   // Stableford = 85%
+      const md = hcpFromIndex(useIdx, useTee, "100");  // Medal = 100%
+      if (sf!==null) nHcaps  = {...handicaps,[p]:String(sf)};
+      if (md!==null) nHcapsM = {...handicapsMedal,[p]:String(md)};
+    }
+    // Actualizamos estados y refs
+    s_pidx(nIdx); s_ptee(nTee); playerIndexRef.current=nIdx; playerTeeRef.current=nTee;
+    s_hcaps(nHcaps); s_hcapsM(nHcapsM);
+    saveSetup(selectedPlayers,nHcaps,nHcapsM,playerList,gameMode,lagunadaVariant,numTeams,teams,activeCourseId);
+  };
   const setMode=(m)=>{s_mode(m);saveSetup(selectedPlayers,handicaps,handicapsMedal,playerList,m,lagunadaVariant,numTeams,teams,activeCourseId);};
   const setLV=(lv)=>{s_lv(lv);saveSetup(selectedPlayers,handicaps,handicapsMedal,playerList,gameMode,lv,numTeams,teams,activeCourseId);};
   const setCourse=(id)=>{s_acid(id);saveSetup(selectedPlayers,handicaps,handicapsMedal,playerList,gameMode,lagunadaVariant,numTeams,teams,id);};
@@ -804,12 +863,38 @@ export default function GolfScorecard() {
           </div>
           {showAdd&&(<div style={{background:"#0f1a0f",border:"1px solid #16a34a",borderRadius:10,padding:12,marginBottom:10,display:"flex",gap:8}}><input value={newPlayerName} onChange={e=>s_npn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addNewPlayer()} placeholder="Nombre" style={{flex:1,background:"#0a2010",border:"1px solid #166534",borderRadius:6,color:"#e2e8f0",padding:"8px 10px",fontSize:14,outline:"none"}}/><button onClick={addNewPlayer} style={{padding:"8px 16px",borderRadius:6,border:"none",background:"#16a34a",color:"#fff",cursor:"pointer",fontWeight:"bold"}}>Agregar</button></div>)}
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {playerList.map(p=>{const sel=selectedPlayers.includes(p);return(
-              <div key={p} style={{background:sel?"#0a2010":"#0f1a0f",border:`1px solid ${sel?"#16a34a":"#1a2e1a"}`,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
-                <div onClick={()=>togglePlayer(p)} style={{width:22,height:22,borderRadius:5,border:`2px solid ${sel?"#16a34a":"#374151"}`,background:sel?"#16a34a":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{sel&&<span style={{color:"#fff",fontSize:14}}>✓</span>}</div>
-                <div onClick={()=>togglePlayer(p)} style={{flex:1,fontWeight:sel?"bold":"normal",color:sel?"#e2e8f0":"#6b7280",cursor:"pointer",fontSize:14}}>{p}</div>
-                {sel&&<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><span style={{fontSize:9,color:"#4ade80",fontWeight:"bold"}}>SF</span><input type="number" min="0" max="54" value={handicaps[p]??""} onChange={e=>setHandicap(p,e.target.value)} placeholder="0" style={{width:48,background:"#0f2a0f",border:"1px solid #166534",borderRadius:6,color:"#4ade80",fontSize:15,fontWeight:"bold",padding:"4px 4px",textAlign:"center",outline:"none"}}/></div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><span style={{fontSize:9,color:"#fbbf24",fontWeight:"bold"}}>Medal</span><input type="number" min="0" max="54" value={handicapsMedal[p]??""} onChange={e=>setHandicapMedal(p,e.target.value)} placeholder="0" style={{width:48,background:"#1a1400",border:"1px solid #92400e",borderRadius:6,color:"#fbbf24",fontSize:15,fontWeight:"bold",padding:"4px 4px",textAlign:"center",outline:"none"}}/></div></div>}
-                <button onClick={()=>s_playerToDelete(p)} style={{flexShrink:0,width:32,height:32,borderRadius:7,border:"1px solid #5f1e1e",background:"transparent",color:"#f87171",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}} title="Eliminar jugador">🗑️</button>
+            {playerList.map(p=>{const sel=selectedPlayers.includes(p);const tieneTabla=courseHasHcpTable(activeCourseId);return(
+              <div key={p} style={{background:sel?"#0a2010":"#0f1a0f",border:`1px solid ${sel?"#16a34a":"#1a2e1a"}`,borderRadius:10,padding:"10px 14px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div onClick={()=>togglePlayer(p)} style={{width:22,height:22,borderRadius:5,border:`2px solid ${sel?"#16a34a":"#374151"}`,background:sel?"#16a34a":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{sel&&<span style={{color:"#fff",fontSize:14}}>✓</span>}</div>
+                  <div onClick={()=>togglePlayer(p)} style={{flex:1,fontWeight:sel?"bold":"normal",color:sel?"#e2e8f0":"#6b7280",cursor:"pointer",fontSize:14}}>{p}</div>
+                  {sel&&!tieneTabla&&<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><span style={{fontSize:9,color:"#4ade80",fontWeight:"bold"}}>SF</span><input type="number" min="0" max="54" value={handicaps[p]??""} onChange={e=>setHandicap(p,e.target.value)} placeholder="0" style={{width:48,background:"#0f2a0f",border:"1px solid #166534",borderRadius:6,color:"#4ade80",fontSize:15,fontWeight:"bold",padding:"4px 4px",textAlign:"center",outline:"none"}}/></div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><span style={{fontSize:9,color:"#fbbf24",fontWeight:"bold"}}>Medal</span><input type="number" min="0" max="54" value={handicapsMedal[p]??""} onChange={e=>setHandicapMedal(p,e.target.value)} placeholder="0" style={{width:48,background:"#1a1400",border:"1px solid #92400e",borderRadius:6,color:"#fbbf24",fontSize:15,fontWeight:"bold",padding:"4px 4px",textAlign:"center",outline:"none"}}/></div></div>}
+                  <button onClick={()=>s_playerToDelete(p)} style={{flexShrink:0,width:32,height:32,borderRadius:7,border:"1px solid #5f1e1e",background:"transparent",color:"#f87171",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}} title="Eliminar jugador">🗑️</button>
+                </div>
+                {sel&&tieneTabla&&(
+                  <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #16344a",display:"flex",alignItems:"flex-end",gap:8,flexWrap:"wrap"}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                      <span style={{fontSize:9,color:"#93c5fd",fontWeight:"bold"}}>ÍNDICE</span>
+                      <input type="text" inputMode="decimal" value={playerIndex[p]??""} onChange={e=>applyIndexTee(p,{idx:e.target.value})} placeholder="12.4" style={{width:60,background:"#0a1a3a",border:"1px solid #1e3a5f",borderRadius:6,color:"#93c5fd",fontSize:15,fontWeight:"bold",padding:"5px 4px",textAlign:"center",outline:"none"}}/>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                      <span style={{fontSize:9,color:"#93c5fd",fontWeight:"bold"}}>SALIDA</span>
+                      <div style={{display:"flex",gap:4}}>
+                        <button onClick={()=>applyIndexTee(p,{tee:"azul"})} style={{padding:"5px 9px",borderRadius:6,border:`2px solid ${playerTee[p]==="azul"?"#3b82f6":"#1e3a5f"}`,background:playerTee[p]==="azul"?"#0a1a3a":"transparent",color:"#60a5fa",cursor:"pointer",fontSize:11,fontWeight:"bold"}}>Azul</button>
+                        <button onClick={()=>applyIndexTee(p,{tee:"blanca"})} style={{padding:"5px 9px",borderRadius:6,border:`2px solid ${playerTee[p]==="blanca"?"#e5e7eb":"#374151"}`,background:playerTee[p]==="blanca"?"#1a1a1a":"transparent",color:"#e5e7eb",cursor:"pointer",fontSize:11,fontWeight:"bold"}}>Blanca</button>
+                      </div>
+                    </div>
+                    <div style={{flex:1}}/>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                      <span style={{fontSize:9,color:"#4ade80",fontWeight:"bold"}}>SF (85%)</span>
+                      <input type="number" value={handicaps[p]??""} onChange={e=>setHandicap(p,e.target.value)} placeholder="—" style={{width:48,background:"#0f2a0f",border:"1px solid #166534",borderRadius:6,color:"#4ade80",fontSize:15,fontWeight:"bold",padding:"5px 4px",textAlign:"center",outline:"none"}}/>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                      <span style={{fontSize:9,color:"#fbbf24",fontWeight:"bold"}}>Medal (100%)</span>
+                      <input type="number" value={handicapsMedal[p]??""} onChange={e=>setHandicapMedal(p,e.target.value)} placeholder="—" style={{width:48,background:"#1a1400",border:"1px solid #92400e",borderRadius:6,color:"#fbbf24",fontSize:15,fontWeight:"bold",padding:"5px 4px",textAlign:"center",outline:"none"}}/>
+                    </div>
+                  </div>
+                )}
               </div>
             );})}
           </div>
